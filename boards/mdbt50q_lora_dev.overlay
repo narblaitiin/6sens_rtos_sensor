@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2025
+ * Regis Rousseau
+ * Univ Lyon, INSA Lyon, Inria, CITI, EA3720
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* battery voltage monitoring and seismic sensor analog value conversion */
+/* external ADC channnel of MDBT50Q, port P0.02 and port P0.03 on schematic */
+/ {
+	zephyr,user {
+		io-channels = <&adc 0>,<&adc 1>;
+	};
+};
+
+/* enable the corresponding ADC, with the correct configuration */
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	/* external ADC channnel AIN0 of MDBT50Q, port P0.02 on schematic for geophone*/
+	channel@0 {
+		reg = <0>;											/* channel 0 of the ADC */
+		zephyr,gain = "ADC_GAIN_1_6";						/* attenuated by 6 (x1/6) */
+		zephyr,reference = "ADC_REF_INTERNAL";				/* reference voltage +0.6 */
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;	/* 10us */
+		zephyr,input-positive = <NRF_SAADC_AIN0>;			/* p0.02 for nRF52xx */
+		zephyr,resolution = <12>;
+	};
+	
+	/* external ADC channnel AIN1 of MDBT50Q, port P0.03 on schematic for battery*/
+	channel@1 {
+		reg = <1>;											/* channel 1 of the ADC */
+		zephyr,gain = "ADC_GAIN_1_6";						/* attenuated by 6 (x1/6) */
+		zephyr,reference = "ADC_REF_INTERNAL";				/* reference voltage +0.6 */
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;	/* 10us */
+		zephyr,input-positive = <NRF_SAADC_AIN1>;			/* p0.03 for nRF52xx */
+		zephyr,resolution = <12>;
+	};
+};
