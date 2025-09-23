@@ -111,8 +111,12 @@ int8_t main(void)
 	bth_thread_flag = true;
 
 	// start ADC sampling and LTA threads
-    //app_adc_sampling_start();
-	//app_lorawan_start_tx();
+    app_adc_sampling_start();
+
+	// start recording data and sent to TTN
+	app_lorawan_start_tx();
+
+	// start strategy to watch an event without sent the event
 	//app_sta_lta_start();
 
 	return 0;
