@@ -29,7 +29,7 @@ void bth_thread_func(void)
         printk("performing periodic action\n");
 		// perform your task: get battery level, temperature and humidity
         (void)app_sensors_handler();
-        k_sleep(K_SECONDS(30));		
+        k_sleep(K_SECONDS(120));		
 	}
 }
 K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_BTH, 0, 0);
@@ -108,7 +108,7 @@ int8_t main(void)
 	printk("Geophone Measurement and Process Information\n");
 
 	// enable environmental sensor and battery level thread
-	bth_thread_flag = true;
+	bth_thread_flag = false;
 
 	// start ADC sampling and LTA threads
     app_adc_sampling_start();
