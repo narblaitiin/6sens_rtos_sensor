@@ -16,8 +16,7 @@ K_THREAD_STACK_DEFINE(lorawan_stack, 4096);
 // declare a thread structure to manage the LoRaWAN thread's data
 struct k_thread lorawan_thread_data;
 
-// buffer to hold the Short-Term Average (STA) and Long-Term Average (LTA) samples
-static uint16_t sta_buffer[STA_WINDOW_SIZE];
+// buffer to hold the Long-Term Average (LTA) samples (1000)
 static uint16_t lta_buffer[LTA_WINDOW_SIZE];
 
 //  ========== app_lorawan_thread ==========================================================
@@ -28,58 +27,53 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
     
     // allocate a buffer for ADC data
     uint8_t payload[255];   // LoRaWAN payload buffer (max ~242 B for DR_5 EU868)
-    int32_t collected = 0;
+    static int32_t sample_index = 0;
 
     while (1) {
-        // sleep until the next send cycle
-        k_sleep(K_MINUTES(3));
-
         // compute offset for last 1s or 10s block
-        int32_t sta_offset = (ring_head - STA_WINDOW_SIZE + ADC_BUFFER_SIZE) % ADC_BUFFER_SIZE;
-        //int32_t lta_offset = (ring_head - LTA_WINDOW_SIZE + ADC_BUFFER_SIZE) % ADC_BUFFER_SIZE;
+        int32_t lta_offset = (ring_head - LTA_WINDOW_SIZE + ADC_BUFFER_SIZE) % ADC_BUFFER_SIZE;
 
         // retrieve the most recent data for the STA and LTA buffers
-        app_adc_get_buffer(sta_buffer, STA_WINDOW_SIZE, sta_offset);
-        //app_adc_get_buffer(lta_buffer, LTA_WINDOW_SIZE, lta_offset);
+        app_adc_get_buffer(lta_buffer, LTA_WINDOW_SIZE, lta_offset);
 
         // pack all samples (16-bit) into chunks that fit LoRaWAN
-        int32_t total_samples = STA_WINDOW_SIZE;
+        int32_t total_samples = LTA_WINDOW_SIZE;
         int32_t sample_index = 0;
 
-        // debug the buffer
-        printk("first 3 samples: %d %d %d\n",
-            sta_buffer[0], sta_buffer[1], sta_buffer[2], lta_buffer[3]);
-
         // send in LoRaWAN-compatible chunks WITHOUT timestamp
-        while (sample_index < total_samples) {  
-            uint8_t unused, max_payload;
-            lorawan_get_payload_sizes(&unused, &max_payload);
+        uint8_t unused, max_payload;
+        lorawan_get_payload_sizes(&unused, &max_payload);
 
-            int32_t max_samples_per_chunk = max_payload / 2; // only samples, 2B each
-            if (max_samples_per_chunk <= 0) {
-                printk("error: LoRaWAN max payload too small\n");
-                break;
-            }
+        int32_t max_samples_per_chunk = max_payload / 2; // only samples, 2 bytes each
+        if (max_samples_per_chunk <= 0) {
+            printk("error: LoRaWAN max payload too small\n");
+            k_sleep(K_SECONDS(10));
+            continue;
+        }
 
-            int32_t chunk_samples = MIN(max_samples_per_chunk, total_samples - sample_index);
+        // compute chunk size
+        int32_t remaining_samples = LTA_WINDOW_SIZE - sample_index;
+        int32_t chunk_samples = MIN(max_samples_per_chunk, remaining_samples);
 
-            for (int32_t i = 0; i < chunk_samples; i++) {
-                payload[2*i] = (lta_buffer[sample_index + i] >> 8) & 0xFF;
-                payload[2*i + 1] = lta_buffer[sample_index + i] & 0xFF;
-            }
+        for (int32_t i = 0; i < chunk_samples; i++) {
+            payload[2*i] = (lta_buffer[sample_index + i] >> 8) & 0xFF;
+            payload[2*i + 1] = lta_buffer[sample_index + i] & 0xFF;
+        }
 
-            int32_t payload_len = chunk_samples * 2;
-            int8_t ret = lorawan_send(LORAWAN_PORT, payload, payload_len,
+        int32_t payload_len = chunk_samples * 2;
+        int8_t ret = lorawan_send(LORAWAN_PORT, payload, payload_len,
             LORAWAN_MSG_UNCONFIRMED);
-            if (ret < 0) {
-                printk("LoRaWAN send failed: %d\n", ret);
-                break;
-            } else {
-                printk("ADC data sent!\n");
-            }
-
-            sample_index += chunk_samples;
-            k_sleep(K_MSEC(200)); // duty-cycle protection
+        if (ret < 0) {
+            printk("LoRaWAN send failed: %d\n", ret);
+        } else {
+            printk("sent %d samples (index %d/%d)\n", chunk_samples, sample_index, LTA_WINDOW_SIZE);
+        }
+        sample_index += chunk_samples;
+        if (sample_index >= LTA_WINDOW_SIZE) {
+            sample_index = 0; // all samples sent, start next batch after 3 min
+            k_sleep(K_MINUTES(3));
+        } else {
+            k_sleep(K_SECONDS(10)); // wait to respect duty cycle
         }
     }
 }
