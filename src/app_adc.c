@@ -10,16 +10,20 @@
 
 //  ========== globals =====================================================================
 // ADC buffer to store raw ADC readings
-static int16_t buffer1;
-static int16_t buffer0;
 static uint16_t ring_buffer[ADC_BUFFER_SIZE];
 static uint32_t sampling_rate_ms = SAMPLING_RATE_MS;
+static uint16_t sample_buffer;
 static bool stop_sampling = false;
 static bool adc_initialized = false;
 
 // ADC channel configuration obtained from the device tree
-static const struct adc_dt_spec adc_channel = ADC_DT_SPEC_GET(DT_PATH(zephyr_user));
-static struct adc_sequence sequence0, sequence1;
+#define DT_SPEC_AND_COMMA(node_id, prop, idx) \
+    ADC_DT_SPEC_GET_BY_IDX(node_id, idx),
+
+static const struct adc_dt_spec adc_channels[] = {
+    DT_FOREACH_PROP_ELEM(DT_PATH(zephyr_user), io_channels,
+                         DT_SPEC_AND_COMMA)
+};
 
 // define a stack for the ADC thread, with a size of 1024 bytes
 K_THREAD_STACK_DEFINE(adc_stack, 1024);
@@ -39,90 +43,108 @@ K_SEM_DEFINE(data_ready_sem, 0, 1);
 // semaphore to signal sampling rate change
 K_SEM_DEFINE(rate_change_sem, 0, 1);
 
-// define a ring buffer to store ADC samples
-static uint16_t ring_buffer[ADC_BUFFER_SIZE];
-
 // index to track the head of the ring buffer
 int ring_head = 0;
 
-// configure ADC sequence
-static int8_t configure_adc_sequence(struct adc_sequence *sequence, uint8_t channel_bitmask, void *buffer, size_t buffer_size) {
-    sequence->channels = BIT(channel_bitmask);
-    sequence->buffer = buffer;
-    sequence->buffer_size = buffer_size;
-    return adc_sequence_init_dt(&adc_channel, sequence);
-}
+// nonlinear mapping via lookup table
+// source: https://www.jackery.com/blogs/knowledge/battery-voltage-chart
+static const struct {
+        float voltage;
+        uint8_t percent;
+} soc_table[] = {
+    {4.20f, 100},
+    {4.05f,  90},
+    {3.95f,  80},
+    {3.85f,  70},
+    {3.80f,  60},
+    {3.75f,  50},
+    {3.70f,  40},
+    {3.65f,  30},
+    {3.55f,  20},
+    {3.40f,  10},
+    {3.00f,   0}
+};
 
-//  ========== app_nrf52_adc_init ==========================================================
-int8_t app_nrf52_adc_init(void)
+//  ========== app_adc_read_ch =============================================================
+static int8_t app_adc_read_ch(size_t ch)
 {
-    if (adc_initialized) {
-        printk("ADC already initialized\n");
-        return 0;
+    int err;
+    const struct adc_dt_spec *spec = &adc_channels[ch];
+
+    if (!device_is_ready(spec->dev)) {
+        printk("ADC device not ready\n");
+        return -ENODEV;
     }
 
-    if (!adc_is_ready_dt(&adc_channel)) {
-        printk("ADC not ready\n");
-        return -1;
-    }
-
-    int8_t err = adc_channel_setup_dt(&adc_channel);
+    err = adc_channel_setup_dt(spec);
     if (err < 0) {
-        printk("ADC channel setup failed. error: %d\n", err);
+        printk("channel setup failed. error: %d\n", err);
         return err;
     }
 
-    if (configure_adc_sequence(&sequence0, 0, &buffer0, sizeof(buffer0)) < 0 ||
-        configure_adc_sequence(&sequence1, 1, &buffer1, sizeof(buffer1)) < 0) {
-        printk("ADC sequence config failed\n");
-        return -1;
+    struct adc_sequence sequence = {
+        .buffer = &sample_buffer,
+        .buffer_size = sizeof(sample_buffer),
+        .resolution = 12,
+    };
+
+    err = adc_sequence_init_dt(spec, &sequence);
+    if (err < 0) {
+        printk("sequence init failed. error: %d\n", err);
+        return err;
     }
 
-    adc_initialized = true;
-    printk("ADC initialized successfully\n");
-    return 1;
+    err = adc_read(spec->dev, &sequence);
+    if (err < 0) {
+        printk("ADC read failed. error: %d\n", err);
+        return err;
+    }
+
+    printk("channel[%d] value = %d\n", ch, sample_buffer);
+    return 0;
 }
 
-//  ========== app_nrf52_get_ain1 ==========================================================
-int16_t app_nrf52_get_bat()
+//  ========== app_adc_get_bat =============================================================
+int16_t app_adc_get_bat()
 {
-    int16_t percent;
+    int16_t percent = 0;
 
     // read sample from the ADC
-    int8_t ret = adc_read(adc_channel.dev, &sequence1);
-    if (ret < 0 ) {        
-	    printk("raw adc value is not up to date. error: %d\n", ret);
-	    return 0;
-    }
-    printk("raw adc value: %d\n", buffer1);
+    app_adc_read_ch(1);
+    printk("raw adc value: %d\n", sample_buffer);
 
     // convert raw ADC reading to voltage
-    int32_t v_adc = (buffer1 * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
-    printk("convert voltage: %d mV\n", v_adc);
+    int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
+    printk("convert voltage AIN1: %d mV\n", v_adc);
 
     // scale back to actual battery voltage using voltage divider
     int32_t v_bat = (v_adc * DIVIDER_RATIO_NUM) / DIVIDER_RATIO_DEN;
+    printk("convert voltage BATT: %d mv\n", v_bat);
 
-    // clamp voltage within battery range
-    if (v_bat > BATTERY_MAX_VOLTAGE) v_bat = BATTERY_MAX_VOLTAGE;
-    if (v_bat < BATTERY_MIN_VOLTAGE) v_bat = BATTERY_MIN_VOLTAGE + 1;
-    printk("clamped voltage: %d mV\n", v_bat);
+    // convert to volts
+    float vbat = v_bat / 1000.0f;  
 
-    // non-linear scaling
-    int32_t range = BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE;
-    int32_t difference = v_bat - BATTERY_MIN_VOLTAGE;
-
-    if (range > 0 && difference > 0) {
-        // use power scaling: percentage = ((difference / range) ^ 1.2) * 100
-        double normalized = (double)difference / range;  // normalize to range [0, 1]
-        double scaled = pow(normalized, 1.2);            // apply non-linear scaling
-        percent = (int16_t)(scaled * 100);               // convert to percentage
+    // convert to volts for lookup
+    uint8_t soc = 0;
+    if (vbat >= soc_table[0].voltage) {
+        soc = 100;
+    } else if (vbat <= soc_table[sizeof(soc_table)/sizeof(soc_table[0]) - 1].voltage) {
+        soc = 0;
     } else {
-        printk("invalid range or difference\n");
-        percent = 0;
+        for (int i = 0; i < (int)(sizeof(soc_table)/sizeof(soc_table[0]) - 1); i++) {
+            float v1 = soc_table[i].voltage;
+            float v2 = soc_table[i+1].voltage;
+            if (vbat <= v1 && vbat >= v2) {
+                float p1 = soc_table[i].percent;
+                float p2 = soc_table[i+1].percent;
+                soc = (uint8_t)(p1 + (vbat - v1)*(p2 - p1)/(v2 - v1));
+                break;
+            }
+        }
     }
 
-    printk("battery level (non-linear, int16): %d%%\n", percent);
+    percent = soc;
+    printk("battery level: %d %%\n", percent);
     return percent;
 }
 
@@ -130,17 +152,17 @@ int16_t app_nrf52_get_bat()
 static void app_adc_thread(void *arg1, void *arg2, void *arg3)
 {
     while (!stop_sampling) {
-        if (adc_read(adc_channel.dev, &sequence0) == 0) {
+         if (app_adc_read_ch(0) == 0) {
             k_mutex_lock(&buffer_lock, K_FOREVER);
-            ring_buffer[ring_head] = buffer0;
+            ring_buffer[ring_head] = sample_buffer;
             ring_head = (ring_head + 1) % ADC_BUFFER_SIZE;
             k_mutex_unlock(&buffer_lock);
             k_sem_give(&data_ready_sem);
         } else {
-            printk("failed to read ADC sequence 0\n");
+            printk("failed to read ADC sequence\n");
         }
 
-        // check for a rate change signal
+        // check for a rate change signals
         if (k_sem_take(&rate_change_sem, K_NO_WAIT) == 0) {
             printk("sampling rate updated to %d ms\n", sampling_rate_ms);
             k_sem_reset(&rate_change_sem);  // reset semaphore count
@@ -154,13 +176,6 @@ static void app_adc_thread(void *arg1, void *arg2, void *arg3)
 // the thread reads data from the ADC and stores it in a ring buffer
 void app_adc_sampling_start(void)
 {
-    if (!adc_initialized) {
-        if (app_nrf52_adc_init() != 1) {
-            printk("ADC init failed in sampling_start\n");
-            return -1;
-        }
-    }
-
     stop_sampling = false;
     k_thread_create(&adc_thread_data, adc_stack, K_THREAD_STACK_SIZEOF(adc_stack),
                     app_adc_thread, NULL, NULL, NULL,
@@ -188,8 +203,6 @@ void app_adc_get_buffer(uint16_t *dest, size_t size, int32_t offset)
 
     // handle negative offsets by wrapping them around the buffer
     int start_index = (ring_head + offset + ADC_BUFFER_SIZE) % ADC_BUFFER_SIZE;
-
-    //printk("fetching ADC buffer: start_index=%d, size=%zu\n", start_index, size);
 
     k_mutex_lock(&buffer_lock, K_FOREVER);
 

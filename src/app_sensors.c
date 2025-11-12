@@ -31,10 +31,10 @@ int8_t app_sensors_handler()
 
     // collect sensor data and add to byte payloa
     int8_t index = 8;           // start after the timestamp
-    int16_t bat = app_nrf52_get_bat();
-    int16_t temp = app_sht31_get_temp(dev);
+    int16_t bat = app_adc_get_bat();
+    int16_t temp = app_sht_get_temp(dev);
     k_sleep(K_SECONDS(5));		// small delay between reading the temperature and humidity values
-    int16_t hum = app_sht31_get_hum(dev);
+    int16_t hum = app_sht_get_hum(dev);
 
     // convert and append each sensor value to byte payload (big-endian)
     int16_t sensor_data[] = {bat, temp, hum};
@@ -43,13 +43,13 @@ int8_t app_sensors_handler()
         byte_payload[index++] = sensor_data[j] & 0xFF;              // low byte
     }
 
-    ret = lorawan_send(LORAWAN_PORT, byte_payload, index, LORAWAN_MSG_UNCONFIRMED);
+    // ret = lorawan_send(LORAWAN_PORT, byte_payload, index, LORAWAN_MSG_UNCONFIRMED);
 
-    if (ret < 0) {
-        printk("lorawan_send failed: %d\n", ret);
-        return ret == -EAGAIN ? 0 : ret;
-    }
+    // if (ret < 0) {
+    //     printk("lorawan_send failed: %d\n", ret);
+    //     return ret == -EAGAIN ? 0 : ret;
+    // }
 
-    printk("BTH data sent!\n");
+    // printk("BTH data sent!\n");
     return 0;
 }

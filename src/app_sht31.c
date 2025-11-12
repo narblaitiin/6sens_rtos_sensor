@@ -9,7 +9,7 @@
 #include "app_sht31.h"
 
 //  ========== app_sht31_get_temp ==========================================================
-int16_t app_sht31_get_temp(const struct device *dev)
+int16_t app_sht_get_temp(const struct device *dev)
 {
     struct sensor_value val;
 
@@ -36,7 +36,7 @@ int16_t app_sht31_get_temp(const struct device *dev)
 }
 
 //  ========== app_sht31_get_hum ===========================================================
-int16_t app_sht31_get_hum(const struct device *dev)
+int16_t app_sht_get_hum(const struct device *dev)
 {
     struct sensor_value val;
 

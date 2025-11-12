@@ -29,11 +29,6 @@
 // voltage divider correction
 #define DIVIDER_RATIO_NUM           4600    // (R4 + R5)
 #define DIVIDER_RATIO_DEN           3600    // R5
-#define DIVIDER_CORRECTION          ((DIVIDER_RATIO_NUM * 1000) / DIVIDER_RATIO_DEN) // ≈1280
-
-// battery thresholds (in mV, actual battery voltage!)
-#define BATTERY_MAX_VOLTAGE         2980
-#define BATTERY_MIN_VOLTAGE         2270
 
 // duration between 2 samples
 #define SAMPLING_RATE_MS            10
@@ -64,10 +59,10 @@ extern int32_t ring_head;
 
 
 //  ========== prototypes ==================================================================
-int8_t app_nrf52_adc_init();
-int16_t app_nrf52_get_bat();
+int16_t app_adc_get_bat();
+static int8_t app_adc_read_ch(size_t ch);
 
-static void adc_thread(void *arg1, void *arg2, void *arg3);
+static void app_adc_thread(void *arg1, void *arg2, void *arg3);
 
 void app_adc_sampling_start(void);
 void app_adc_sampling_stop(void);
