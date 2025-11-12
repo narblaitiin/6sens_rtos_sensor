@@ -50,13 +50,6 @@ int8_t main(void)
 
 	printk("Initializtion of all Hardware Devices\n");
 
-	// initialize ADC device
-	// ret = app_adc_init();
-	// if (ret != 1) {
-	// 	printk("failed to initialize ADC device\n");
-	// 	return 0;
-	// }
-
 	// initialize DS3231 RTC device via I2C (Pins: SDA -> P0.09, SCL -> P0.0)
 	const struct device *rtc_dev = app_ds3231_init();
     if (!rtc_dev) {
@@ -64,46 +57,46 @@ int8_t main(void)
         return 0;
     }
 
-	// // initialize LoRaWAN protocol and register the device
-	// const struct device *lora_dev;
-	// struct lorawan_join_config join_cfg;
-	// uint8_t dev_eui[] = LORAWAN_DEV_EUI;
-	// uint8_t join_eui[] = LORAWAN_JOIN_EUI;
-	// uint8_t app_key[] = LORAWAN_APP_KEY;
+	// initialize LoRaWAN protocol and register the device
+	const struct device *lora_dev;
+	struct lorawan_join_config join_cfg;
+	uint8_t dev_eui[] = LORAWAN_DEV_EUI;
+	uint8_t join_eui[] = LORAWAN_JOIN_EUI;
+	uint8_t app_key[] = LORAWAN_APP_KEY;
 
-	// struct lorawan_downlink_cb downlink_cb = {
-	// 	.port = LW_RECV_PORT_ANY,
-	// 	.cb = dl_callback
-	// };
+	struct lorawan_downlink_cb downlink_cb = {
+		.port = LW_RECV_PORT_ANY,
+		.cb = dl_callback
+	};
 
-	// lora_dev = DEVICE_DT_GET(DT_ALIAS(lora0));
-	// if (!device_is_ready(lora_dev)) {
-	// 	printk("%s: device not ready\n", lora_dev->name);
-	// 	return 0;
-	// }
+	lora_dev = DEVICE_DT_GET(DT_ALIAS(lora0));
+	if (!device_is_ready(lora_dev)) {
+		printk("%s: device not ready\n", lora_dev->name);
+		return 0;
+	}
 
-	// ret = lorawan_start();
-	// if (ret < 0) {
-	// 	printk("lorawan_start failed. error: %d", ret);
-	// 	return 0;
-	// }
+	ret = lorawan_start();
+	if (ret < 0) {
+		printk("lorawan_start failed. error: %d", ret);
+		return 0;
+	}
 
-	// lorawan_register_downlink_callback(&downlink_cb);
-	// lorawan_register_dr_changed_callback(lorwan_datarate_changed);
+	lorawan_register_downlink_callback(&downlink_cb);
+	lorawan_register_dr_changed_callback(lorwan_datarate_changed);
 
-	// join_cfg.mode = LORAWAN_ACT_OTAA;
-	// join_cfg.dev_eui = dev_eui;
-	// join_cfg.otaa.join_eui = join_eui;
-	// join_cfg.otaa.app_key = app_key;
-	// join_cfg.otaa.nwk_key = app_key;
-	// join_cfg.otaa.dev_nonce = 0u;
+	join_cfg.mode = LORAWAN_ACT_OTAA;
+	join_cfg.dev_eui = dev_eui;
+	join_cfg.otaa.join_eui = join_eui;
+	join_cfg.otaa.app_key = app_key;
+	join_cfg.otaa.nwk_key = app_key;
+	join_cfg.otaa.dev_nonce = 0u;
 
-	// printk("Joining network over OTAA\n");
-	// ret = lorawan_join(&join_cfg);
-	// if (ret < 0) {
-	// 	printk("lorawan_join_network failed. error %d\n", ret);
-	// 	return 0;
-	// }
+	printk("Joining network over OTAA\n");
+	ret = lorawan_join(&join_cfg);
+	if (ret < 0) {
+		printk("lorawan_join_network failed. error %d\n", ret);
+		return 0;
+	}
 
 	printk("Geophone Measurement and Process Information\n");
 

@@ -100,7 +100,7 @@ static int8_t app_adc_read_ch(size_t ch)
         return err;
     }
 
-    printk("channel[%d] value = %d\n", ch, sample_buffer);
+    printk("channel[%d] raw value = %d\n", ch, sample_buffer);
     return 0;
 }
 
@@ -111,7 +111,6 @@ int16_t app_adc_get_bat()
 
     // read sample from the ADC
     app_adc_read_ch(1);
-    printk("raw adc value: %d\n", sample_buffer);
 
     // convert raw ADC reading to voltage
     int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
@@ -154,6 +153,10 @@ static void app_adc_thread(void *arg1, void *arg2, void *arg3)
     while (!stop_sampling) {
          if (app_adc_read_ch(0) == 0) {
             k_mutex_lock(&buffer_lock, K_FOREVER);
+
+            int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
+            printk("convert voltage AIN0: %d mV\n", v_adc);
+            
             ring_buffer[ring_head] = sample_buffer;
             ring_head = (ring_head + 1) % ADC_BUFFER_SIZE;
             k_mutex_unlock(&buffer_lock);
