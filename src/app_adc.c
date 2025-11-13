@@ -157,7 +157,7 @@ static void app_adc_thread(void *arg1, void *arg2, void *arg3)
             int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
             printk("convert voltage AIN0: %d mV\n", v_adc);
             
-            ring_buffer[ring_head] = sample_buffer;
+            ring_buffer[ring_head] = v_adc;
             ring_head = (ring_head + 1) % ADC_BUFFER_SIZE;
             k_mutex_unlock(&buffer_lock);
             k_sem_give(&data_ready_sem);

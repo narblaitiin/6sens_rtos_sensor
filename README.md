@@ -6,6 +6,12 @@ This code also allows to test the transmission of battery level, temperature, an
 
 At the same time, samples from the geophone are also sent to the TTN app for a short (1 s) or long (10 s) duration. Priority is given to data from the sensor.
 
+Two files are provided before the final code:
+
+- app_ttn_tx: sends a number of samples in mV the size of the LTA_WINDOW_SIZE window (10s, 10ms sampling interval) to LoRaWAN
+
+- app_sta_lta: calculates the ratio between the amplitude in mV of the samples from a short window (STA_WINDOW_SIZE) and a long window (LTA_WINDOW_SIZE).
+
 The version of Zephyr RTOS used is the version v4.0.0.
 
 ## Board used
