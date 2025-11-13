@@ -18,7 +18,6 @@ static void dl_callback(uint8_t port, bool data_pending,
 	printk("Port %d, Pending %d, RSSI %ddB, SNR %ddBm\n", port, data_pending, rssi, snr);
 }
 
-
 // thread to send environment value when no activity
 bool bth_thread_flag = true;
 void bth_thread_func(void)
