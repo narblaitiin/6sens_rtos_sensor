@@ -6,9 +6,10 @@ This code also allows to test the transmission of battery level, temperature, an
 
 At the same time, samples from the geophone are also sent to the TTN app for a short (1 s) or long (10 s) duration. Priority is given to data from the sensor.
 
-The version of Zephyr RTOS used is the version v3.6.0.
+The version of Zephyr RTOS used is the version v4.0.0.
 
-**Board used** : Original MBDT50Q board, powered by battery/solar panel. (see 6sens_project_nrf52 repository/hardware part, for more information.)
+## Board used
+Original MDBT50Q board, powered by battery/solar panel. (see 6sens_prj repository/hardware part, for more information.)
 
 ## General Information of Application
 You will need to register new devices in your application (with OTAA activation method). Once this is done, retain the TTN Device Address(4 Bytes), the TTN Network Key(16 Bytes) and the TTN Application Key (16 Bytes). You also have to make sure that the activation method is OTAA.
