@@ -100,13 +100,13 @@ int8_t main(void)
 	printk("Geophone Measurement and Process Information\n");
 
 	// enable environmental sensor and battery level thread
-	bth_thread_flag = true;
+	bth_thread_flag = false;
 
 	// start ADC sampling and LTA threads
     app_adc_sampling_start();
 
 	// start recording data and sent to TTN
-	//app_lorawan_start_tx();
+//	app_lorawan_start_tx();
 
 	// start strategy to watch an event without sent the event
 	app_sta_lta_start();

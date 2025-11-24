@@ -43,13 +43,13 @@ int8_t app_sensors_handler()
         byte_payload[index++] = sensor_data[j] & 0xFF;              // low byte
     }
 
-    // ret = lorawan_send(LORAWAN_PORT, byte_payload, index, LORAWAN_MSG_UNCONFIRMED);
+    ret = lorawan_send(LORAWAN_PORT, byte_payload, index, LORAWAN_MSG_UNCONFIRMED);
 
-    // if (ret < 0) {
-    //     printk("lorawan_send failed: %d\n", ret);
-    //     return ret == -EAGAIN ? 0 : ret;
-    // }
+    if (ret < 0) {
+        printk("lorawan_send failed: %d\n", ret);
+        return ret == -EAGAIN ? 0 : ret;
+    }
 
-    // printk("BTH data sent!\n");
+    printk("BTH data sent!\n");
     return 0;
 }
