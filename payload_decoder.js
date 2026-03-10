@@ -38,7 +38,7 @@ function decodeUplink(input)
         // decode the uint64 timestamp (big-endian representation)
         unixTimestamp = (bytes[0] << 56 >>> 0) | (bytes[1] << 48) | (bytes[2] << 40) | (bytes[3] << 32) | (bytes[4] << 24) | (bytes[5] << 16) | (bytes[6] << 8) | bytes[7]; // use `>>> 0` to ensure unsigned shift
 
-  \     // decode the int16 values (big-endian representation)
+       // decode the int16 values (big-endian representation)
         var amp_raw   = (input.bytes[9] << 8) | input.bytes[10];
         var ratio_raw = (input.bytes[11] << 8) | input.bytes[12];
 
