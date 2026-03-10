@@ -35,20 +35,18 @@ function decodeUplink(input)
     // check payload length (more than 14 bytes neeeded here -> velocity samples)
 
     else {
-        var values = [];
-        for (var i = 0; i < bytes.length; i += 2) {
-            // decode the int16 values (big-endian representation)
-            var value = (bytes[i] << 8) | bytes[i + 1];
+        // decode the uint64 timestamp (big-endian representation)
+        unixTimestamp = (bytes[0] << 56 >>> 0) | (bytes[1] << 48) | (bytes[2] << 40) | (bytes[3] << 32) | (bytes[4] << 24) | (bytes[5] << 16) | (bytes[6] << 8) | bytes[7]; // use `>>> 0` to ensure unsigned shift
 
-            // convert to signed 16-bit integers
-            if (value & 0x8000) value -= 0x10000;
-            values.push(value);
-        }
+  \     // decode the int16 values (big-endian representation)
+        var amp_raw   = (input.bytes[9] << 8) | input.bytes[10];
+        var ratio_raw = (input.bytes[11] << 8) | input.bytes[12];
 
         // return decoded values as JSON
         return {
             data: {
-                Velocity: values
+                max_amplitude: amp_raw / 256.0,
+                ratio:         ratio_raw / 256.0
             }
         };
     }

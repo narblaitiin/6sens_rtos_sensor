@@ -39,3 +39,17 @@
 		zephyr,resolution = <12>;
 	};
 };
+
+/* enable the recording in the EEPROM */
+&mx25r64 {
+	partitions {
+		compatible		= "fixed-partitions";
+		#address-cells	= <1>;
+		#size-cells		= <1>;
+
+		lfs_storage: partition@0 {
+			label	= "lfs_storage";
+			reg		= <0x00000000 0x00800000>;
+		};
+	};
+};

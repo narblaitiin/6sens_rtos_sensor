@@ -57,7 +57,6 @@
 extern struct k_sem data_ready_sem;
 extern int32_t ring_head;
 
-
 //  ========== prototypes ==================================================================
 int16_t app_adc_get_bat();
 static int8_t app_adc_read_ch(size_t ch);

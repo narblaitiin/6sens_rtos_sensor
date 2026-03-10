@@ -8,7 +8,8 @@
 //  ========== includes ====================================================================
 #include "app_adc.h"
 #include "app_sensors.h"
-#include "app_sta_lta.h"
+#include "app_sta_lta_tx.h"
+#include "fs_utils.h"
 
 //  ========== globals =====================================================================
 static void dl_callback(uint8_t port, bool data_pending,
@@ -99,16 +100,27 @@ int8_t main(void)
 
 	printk("Geophone Measurement and Process Information\n");
 
+	int rc = mount_lfs();
+	if (rc < 0) {
+        printk("mount failed. stopping application: %d\n", rc);
+        return rc;
+    }
+	int clean_fs = true;
+
+	// dump the content of /lfs filesystem
+	dump_fs(clean_fs);
+
 	// enable environmental sensor and battery level thread
 	bth_thread_flag = false;
+
 	// start ADC sampling and LTA threads
     app_adc_sampling_start();
 
 	// start recording data and sent to TTN
-//	app_lorawan_start_tx();
+	// app_lorawan_start_tx();
 
 	// start strategy to watch an event without sent the event
-	app_sta_lta_start();
+	app_sta_lta_start_tx();
 
 	return 0;
 }
