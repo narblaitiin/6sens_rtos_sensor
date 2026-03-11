@@ -38,15 +38,23 @@ function decodeUplink(input)
         // decode the uint64 timestamp (big-endian representation)
         unixTimestamp = (bytes[0] << 56 >>> 0) | (bytes[1] << 48) | (bytes[2] << 40) | (bytes[3] << 32) | (bytes[4] << 24) | (bytes[5] << 16) | (bytes[6] << 8) | bytes[7]; // use `>>> 0` to ensure unsigned shift
 
+         // convert and display Unix timestamp as a human-readable date and time 
+        date = new Date(unixTimestamp * 1000); // convert seconds to milliseconds
+        readable_date = date.toISOString(); // ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
+
        // decode the int16 values (big-endian representation)
-        var amp_raw   = (input.bytes[9] << 8) | input.bytes[10];
-        var ratio_raw = (input.bytes[11] << 8) | input.bytes[12];
+        var amp_raw   = (input.bytes[8] << 8) | input.bytes[9];
+        var ratio_raw = (input.bytes[10] << 8) | input.bytes[11];
+
+        if (amp_raw & 0x8000) amp_raw -= 0x10000;
+        if (ratio_raw & 0x8000) ratio_raw -= 0x10000;
 
         // return decoded values as JSON
         return {
             data: {
-                max_amplitude: amp_raw / 256.0,
-                ratio:         ratio_raw / 256.0
+                Timestamp: readable_date,   // timestamp (human-readable format)
+                Amplitude: amp_raw,
+                Ratio: ratio_raw
             }
         };
     }

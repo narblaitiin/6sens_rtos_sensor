@@ -26,9 +26,9 @@ static uint16_t lta_buffer[LTA_WINDOW_SIZE];
 
 // message structure to pass detection results to LoRaWAN sender
 typedef struct {
+    int64_t timestamp_ms;
     float max_ampl;
     float ratio;
-    int64_t timestamp_ms;
 } lta_event_t;
 
 
@@ -76,13 +76,12 @@ static uint16_t find_max_amplitude(const uint16_t *buffer, size_t size)
     return max_val;
 }
 
-//  ======== float_to_q8_8
-static uint16_t float_to_uint16(float val)
+//  ======== float_to_int16 ================================================================
+static int16_t float_to_int16(float val)
 {
-    // clamp to [0, 255.996] then scale by 256
-    if (val < 0.0f)   val = 0.0f;
-    if (val > 255.0f) val = 255.0f;
-    return (uint16_t)(val * 256.0f);
+    if (val > 32767.0f) return 32767;
+    if (val < -32768.0f) return -32768;
+    return (int16_t)val;
 }
 
 // ========== NEW: LoRaWAN send thread ====================================================
@@ -98,23 +97,21 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
         k_msgq_get(&lorawan_msgq, &event, K_FOREVER);
 
         // retrieve the current timestamp from the RTC device
-        uint64_t timestamp_ms = app_ds3231_get_time();
+        event.timestamp_ms = app_ds3231_get_time();
 
-        uint16_t amp_enc   = float_to_uint16(event.max_ampl);
-        uint16_t ratio_enc = float_to_uint16(event.ratio);
+        int16_t amp_enc   = float_to_int16(event.max_ampl);
+        int16_t ratio_enc = float_to_int16(event.ratio);
+        //rintk("int16: amp = %d mV, ratio = %d", amp_enc, ratio_enc);
 
         // add timestamp to byte payload (big-endian)
         for (int8_t i = 0; i < 8; i++) {
-            payload[i] = (timestamp_ms >> (56 - i * 8)) & 0xFF;
+            payload[i] = (event.timestamp_ms >> (56 - i * 8)) & 0xFF;
         }
 
         payload[8] = (amp_enc  >> 8) & 0xFF;
-        payload[9] =  amp_enc         & 0xFF;
+        payload[9] =  amp_enc & 0xFF;
         payload[10] = (ratio_enc >> 8) & 0xFF;
-        payload[11] =  ratio_enc       & 0xFF;
-
-        printk("LoRaWAN TX → amp: %.2f  ratio: %.2f  ts: %lld ms\n",
-               event.max_ampl, event.ratio, event.timestamp_ms);
+        payload[11] =  ratio_enc & 0xFF;
 
         int8_t ret = lorawan_send(LORAWAN_PORT, payload, sizeof(payload), LORAWAN_MSG_UNCONFIRMED);
         if (ret < 0) {
@@ -125,66 +122,66 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 }
 
 // ========== app_storage_thread: rewritten to use app_adc_get_buffer ====================
-static void app_storage_thread(void *arg1, void *arg2, void *arg3)
-{
-    printk("Storage thread started\n");
+// static void app_storage_thread(void *arg1, void *arg2, void *arg3)
+// {
+//     printk("Storage thread started\n");
 
-    struct fs_file_t file;
-    fs_file_t_init(&file);
+//     struct fs_file_t file;
+//     fs_file_t_init(&file);
 
-    static int file_index = 0;
-    char file_path[32];
-    snprintf(file_path, sizeof(file_path), "%s_%03d%s", FILE_PREFIX, file_index, FILE_EXT);
+//     static int file_index = 0;
+//     char file_path[32];
+//     snprintf(file_path, sizeof(file_path), "%s_%03d%s", FILE_PREFIX, file_index, FILE_EXT);
 
-    int rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
-    if (rc < 0) {
-        printk("file open failed. error: %d\n", rc);
-        return;
-    }
+//     int rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
+//     if (rc < 0) {
+//         printk("file open failed. error: %d\n", rc);
+//         return;
+//     }
 
-    size_t   current_file_size = fs_tell(&file);
-    storage_event_t event;
+//     size_t   current_file_size = fs_tell(&file);
+//     storage_event_t event;
 
-    // Reuse STA window size — one window of samples written per ADC event
-    static uint16_t storage_buf[STA_WINDOW_SIZE];
+//     // Reuse STA window size — one window of samples written per ADC event
+//     static uint16_t storage_buf[STA_WINDOW_SIZE];
 
-    while (1) {
-        k_msgq_get(&storage_msgq, &event, K_FOREVER);
+//     while (1) {
+//         k_msgq_get(&storage_msgq, &event, K_FOREVER);
 
-        // Compute offset: read the STA_WINDOW_SIZE samples ending at head_snapshot
-        int32_t offset = (event.head_snapshot - STA_WINDOW_SIZE + ADC_BUFFER_SIZE)
-                         % ADC_BUFFER_SIZE;
+//         // Compute offset: read the STA_WINDOW_SIZE samples ending at head_snapshot
+//         int32_t offset = (event.head_snapshot - STA_WINDOW_SIZE + ADC_BUFFER_SIZE)
+//                          % ADC_BUFFER_SIZE;
 
-        // Use the same safe, mutex-protected function as the STA/LTA thread
-        app_adc_get_buffer(storage_buf, STA_WINDOW_SIZE, offset);
+//         // Use the same safe, mutex-protected function as the STA/LTA thread
+//         app_adc_get_buffer(storage_buf, STA_WINDOW_SIZE, offset);
 
-        size_t byte_len = STA_WINDOW_SIZE * sizeof(uint16_t);
-        rc = fs_write(&file, storage_buf, byte_len);
-        if (rc < 0) {
-            printk("flash write failed. error: %d\n", rc);
-        } else {
-            current_file_size += byte_len;
-        }
+//         size_t byte_len = STA_WINDOW_SIZE * sizeof(uint16_t);
+//         rc = fs_write(&file, storage_buf, byte_len);
+//         if (rc < 0) {
+//             printk("flash write failed. error: %d\n", rc);
+//         } else {
+//             current_file_size += byte_len;
+//         }
 
-        // Rotate file when max size is reached
-        if (current_file_size >= MAX_FILE_SIZE) {
-            fs_close(&file);
-            file_index++;
-            snprintf(file_path, sizeof(file_path), "%s_%03d%s",
-                     FILE_PREFIX, file_index, FILE_EXT);
-            fs_file_t_init(&file);
-            rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
-            if (rc < 0) {
-                printk("failed to open new file. error: %d\n", rc);
-                return;
-            }
-            current_file_size = 0;
-            printk("rotated to new file: %s\n", file_path);
-        }
-    }
+//         // Rotate file when max size is reached
+//         if (current_file_size >= MAX_FILE_SIZE) {
+//             fs_close(&file);
+//             file_index++;
+//             snprintf(file_path, sizeof(file_path), "%s_%03d%s",
+//                      FILE_PREFIX, file_index, FILE_EXT);
+//             fs_file_t_init(&file);
+//             rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
+//             if (rc < 0) {
+//                 printk("failed to open new file. error: %d\n", rc);
+//                 return;
+//             }
+//             current_file_size = 0;
+//             printk("rotated to new file: %s\n", file_path);
+//         }
+//     }
 
-    fs_close(&file);
-}
+//     fs_close(&file);
+// }
 
 //  ========== app_lta_thread ==============================================================
 static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
@@ -207,31 +204,28 @@ static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
         float lta   = calculate_lta(lta_buffer, LTA_WINDOW_SIZE);
         float ratio = (lta > 0.0f) ? (sta / lta) : 0.0f;   // guard divide-by-zero
 
-        printk("STA: %.2f  LTA: %.2f  ratio: %.2f\n", sta, lta, ratio);
+        printk("STA: %.2f, LTA: %.2f, ratio: %.2f\n", sta, lta, ratio);
 
         // before DSP — snapshot ring_head and pass it to the storage thread
         storage_event_t s_evt = {
             .head_snapshot = ring_head,   // capture position before it advances
         };
-        if (k_msgq_put(&storage_msgq, &s_evt, K_NO_WAIT) != 0) {
-            printk("WARN: storage queue full, sample dropped\n");
-        }
 
         // only send LoRaWAN when a seismic event is detected
         if (ratio >= DETECTION_RATIO) {
             uint16_t max_amp = find_max_amplitude(sta_buffer, STA_WINDOW_SIZE);
 
             lta_event_t l_evt = {
+                .timestamp_ms  = k_uptime_get(),
                 .max_ampl = (float)max_amp,
                 .ratio         = ratio,
-                .timestamp_ms  = k_uptime_get(),
             };
 
             if (k_msgq_put(&lorawan_msgq, &l_evt, K_NO_WAIT) != 0) {
-                printk("WARN: LoRaWAN queue full, event dropped\n");
+                printk("warning: LoRaWAN queue full, event dropped\n");
             }
 
-            printk("EVENT DETECTED → max_amp: %u  ratio: %.2f\n", max_amp, ratio);
+            printk("event detected: max amplitude: %u, ratio: %.2f\n", max_amp, ratio);
         }
     }
 }
@@ -254,8 +248,8 @@ void app_sta_lta_start_tx(void)
                     PRIORITY_TTN + 1, 0, K_NO_WAIT);
 
     // sample storage thread (lowest priority — background write)
-    k_thread_create(&storage_thread_data, storage_stack,
-                    K_THREAD_STACK_SIZEOF(storage_stack),
-                    app_storage_thread, NULL, NULL, NULL,
-                    PRIORITY_STORAGE + 2, 0, K_NO_WAIT);
+    // k_thread_create(&storage_thread_data, storage_stack,
+    //                 K_THREAD_STACK_SIZEOF(storage_stack),
+    //                 app_storage_thread, NULL, NULL, NULL,
+    //                 PRIORITY_STORAGE + 2, 0, K_NO_WAIT);
 }

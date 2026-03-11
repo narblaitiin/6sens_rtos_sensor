@@ -29,7 +29,7 @@ void bth_thread_func(void)
         printk("performing periodic action\n");
 		// perform your task: get battery level, temperature and humidity
         (void)app_sensors_handler();
-        k_sleep(K_SECONDS(120));		
+        k_sleep(K_SECONDS(300));		
 	}
 }
 K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_TTN, 0, 0);
@@ -105,21 +105,18 @@ int8_t main(void)
         printk("mount failed. stopping application: %d\n", rc);
         return rc;
     }
-	int clean_fs = true;
+	int clean_fs = false;
 
 	// dump the content of /lfs filesystem
-	dump_fs(clean_fs);
+	//	dump_fs(clean_fs);
 
 	// enable environmental sensor and battery level thread
-	bth_thread_flag = false;
+	bth_thread_flag = true;
 
-	// start ADC sampling and LTA threads
+	// start ADC sampling
     app_adc_sampling_start();
 
-	// start recording data and sent to TTN
-	// app_lorawan_start_tx();
-
-	// start strategy to watch an event without sent the event
+	// start storage and strategy to watch an event with sent the event
 	app_sta_lta_start_tx();
 
 	return 0;
