@@ -32,7 +32,7 @@ void bth_thread_func(void)
         k_sleep(K_SECONDS(120));		
 	}
 }
-K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_BTH, 0, 0);
+K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_TTN, 0, 0);
 
 static void lorwan_datarate_changed(enum lorawan_datarate dr)
 {

@@ -44,14 +44,11 @@
 #define STA_WINDOW_SIZE (STA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
 #define LTA_WINDOW_SIZE (LTA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
 
-// trigger thresholds with hysteresis
-#define TRIGGER_THRESHOLD           1.0f //0.8f    // 5.0f // STA/LTA ratio to trigger event
-#define RESET_THRESHOLD             0.6f    // 2.5f // STA/LTA ratio to reset trigger
-
 // priority of the different threads involved
 #define PRIORITY_ADC                2
-#define PRIORITY_LTA                3
-#define PRIORITY_BTH                4
+#define PRIORITY_STORAGE            3
+#define PRIORITY_LTA                4
+#define PRIORITY_TTN                5
 
 // ========== globals ======================================================================
 extern struct k_sem data_ready_sem;

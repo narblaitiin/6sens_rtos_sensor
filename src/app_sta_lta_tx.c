@@ -251,11 +251,11 @@ void app_sta_lta_start_tx(void)
     k_thread_create(&lorawan_thread_data, lorawan_stack,
                     K_THREAD_STACK_SIZEOF(lorawan_stack),
                     app_lorawan_thread, NULL, NULL, NULL,
-                    PRIORITY_LTA + 1, 0, K_NO_WAIT);
+                    PRIORITY_TTN + 1, 0, K_NO_WAIT);
 
     // sample storage thread (lowest priority — background write)
     k_thread_create(&storage_thread_data, storage_stack,
                     K_THREAD_STACK_SIZEOF(storage_stack),
                     app_storage_thread, NULL, NULL, NULL,
-                    PRIORITY_LTA + 2, 0, K_NO_WAIT);
+                    PRIORITY_STORAGE + 2, 0, K_NO_WAIT);
 }
