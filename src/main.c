@@ -59,7 +59,7 @@ int8_t main(void)
         printk("failed to initialize RTC device\n");
         return 0;
     } else {
-		//app_ds3231_set_time(rtc_dev, 1773238123); // set to "2026-03-11 14:08:041" UTC
+		app_ds3231_set_time(rtc_dev, 1773238123); // set to "2026-03-11 14:08:041" UTC
 	}
 
 	// initialize LoRaWAN protocol and register the device
