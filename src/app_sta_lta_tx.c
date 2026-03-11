@@ -60,7 +60,6 @@ static float calculate_lta(const uint16_t *buffer, size_t size)
     for (size_t i = 0; i < size; i++) {
         sum += (float)buffer[i];
     }
-    //printk("LTA sum: %.2f\n", sum/size);
     return sum / size;
 }
 
@@ -93,7 +92,7 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
     uint8_t payload[12];
 
     while (1) {
-        // Block until a detection event is enqueued
+        // block until a detection event is enqueued
         k_msgq_get(&lorawan_msgq, &event, K_FOREVER);
 
         // retrieve the current timestamp from the RTC device
@@ -101,7 +100,7 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 
         int16_t amp_enc   = float_to_int16(event.max_ampl);
         int16_t ratio_enc = float_to_int16(event.ratio);
-        //rintk("int16: amp = %d mV, ratio = %d", amp_enc, ratio_enc);
+        //printk("int16: amp = %d mV, ratio = %d", amp_enc, ratio_enc);
 
         // add timestamp to byte payload (big-endian)
         for (int8_t i = 0; i < 8; i++) {
@@ -122,73 +121,73 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 }
 
 // ========== app_storage_thread: rewritten to use app_adc_get_buffer ====================
-// static void app_storage_thread(void *arg1, void *arg2, void *arg3)
-// {
-//     printk("Storage thread started\n");
+static void app_storage_thread(void *arg1, void *arg2, void *arg3)
+{
+    printk("Storage thread started\n");
 
-//     struct fs_file_t file;
-//     fs_file_t_init(&file);
+    struct fs_file_t file;
+    fs_file_t_init(&file);
 
-//     static int file_index = 0;
-//     char file_path[32];
-//     snprintf(file_path, sizeof(file_path), "%s_%03d%s", FILE_PREFIX, file_index, FILE_EXT);
+    static int file_index = 0;
+    char file_path[32];
+    snprintf(file_path, sizeof(file_path), "%s_%03d%s", FILE_PREFIX, file_index, FILE_EXT);
 
-//     int rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
-//     if (rc < 0) {
-//         printk("file open failed. error: %d\n", rc);
-//         return;
-//     }
+    int rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
+    if (rc < 0) {
+        printk("file open failed. error: %d\n", rc);
+        return;
+    }
 
-//     size_t   current_file_size = fs_tell(&file);
-//     storage_event_t event;
+    size_t   current_file_size = fs_tell(&file);
+    storage_event_t event;
 
-//     // Reuse STA window size — one window of samples written per ADC event
-//     static uint16_t storage_buf[STA_WINDOW_SIZE];
+    // reuse STA window size — one window of samples written per ADC event
+    static uint16_t storage_buf[STA_WINDOW_SIZE];
 
-//     while (1) {
-//         k_msgq_get(&storage_msgq, &event, K_FOREVER);
+    while (1) {
+        k_msgq_get(&storage_msgq, &event, K_FOREVER);
 
-//         // Compute offset: read the STA_WINDOW_SIZE samples ending at head_snapshot
-//         int32_t offset = (event.head_snapshot - STA_WINDOW_SIZE + ADC_BUFFER_SIZE)
-//                          % ADC_BUFFER_SIZE;
+        // compute offset: read the STA_WINDOW_SIZE samples ending at head_snapshot
+        int32_t offset = (event.head_snapshot - STA_WINDOW_SIZE + ADC_BUFFER_SIZE)
+                         % ADC_BUFFER_SIZE;
 
-//         // Use the same safe, mutex-protected function as the STA/LTA thread
-//         app_adc_get_buffer(storage_buf, STA_WINDOW_SIZE, offset);
+        // use the same safe, mutex-protected function as the STA/LTA thread
+        app_adc_get_buffer(storage_buf, STA_WINDOW_SIZE, offset);
 
-//         size_t byte_len = STA_WINDOW_SIZE * sizeof(uint16_t);
-//         rc = fs_write(&file, storage_buf, byte_len);
-//         if (rc < 0) {
-//             printk("flash write failed. error: %d\n", rc);
-//         } else {
-//             current_file_size += byte_len;
-//         }
+        size_t byte_len = STA_WINDOW_SIZE * sizeof(uint16_t);
+        rc = fs_write(&file, storage_buf, byte_len);
+        if (rc < 0) {
+            printk("flash write failed. error: %d\n", rc);
+        } else {
+            current_file_size += byte_len;
+        }
 
-//         // Rotate file when max size is reached
-//         if (current_file_size >= MAX_FILE_SIZE) {
-//             fs_close(&file);
-//             file_index++;
-//             snprintf(file_path, sizeof(file_path), "%s_%03d%s",
-//                      FILE_PREFIX, file_index, FILE_EXT);
-//             fs_file_t_init(&file);
-//             rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
-//             if (rc < 0) {
-//                 printk("failed to open new file. error: %d\n", rc);
-//                 return;
-//             }
-//             current_file_size = 0;
-//             printk("rotated to new file: %s\n", file_path);
-//         }
-//     }
+        // rotate file when max size is reached
+        if (current_file_size >= MAX_FILE_SIZE) {
+            fs_close(&file);
+            file_index++;
+            snprintf(file_path, sizeof(file_path), "%s_%03d%s",
+                     FILE_PREFIX, file_index, FILE_EXT);
+            fs_file_t_init(&file);
+            rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
+            if (rc < 0) {
+                printk("failed to open new file. error: %d\n", rc);
+                return;
+            }
+            current_file_size = 0;
+            printk("rotated to new file: %s\n", file_path);
+        }
+    }
 
-//     fs_close(&file);
-// }
+    fs_close(&file);
+}
 
 //  ========== app_lta_thread ==============================================================
 static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 {
     printk("STA/LTA thread started\n");
 
-    // Threshold above which we consider an event detected (tune for your sensor)
+    // threshold above which we consider an event detected
     const float DETECTION_RATIO = 3.0f;
 
     while (1) {
@@ -248,8 +247,8 @@ void app_sta_lta_start_tx(void)
                     PRIORITY_TTN + 1, 0, K_NO_WAIT);
 
     // sample storage thread (lowest priority — background write)
-    // k_thread_create(&storage_thread_data, storage_stack,
-    //                 K_THREAD_STACK_SIZEOF(storage_stack),
-    //                 app_storage_thread, NULL, NULL, NULL,
-    //                 PRIORITY_STORAGE + 2, 0, K_NO_WAIT);
+    k_thread_create(&storage_thread_data, storage_stack,
+                    K_THREAD_STACK_SIZEOF(storage_stack),
+                    app_storage_thread, NULL, NULL, NULL,
+                    PRIORITY_STORAGE + 2, 0, K_NO_WAIT);
 }
