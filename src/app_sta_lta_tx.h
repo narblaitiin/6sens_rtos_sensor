@@ -23,4 +23,10 @@
 static void app_lta_thread(void *arg1, void *arg2, void *arg3);
 void app_sta_lta_start_tx(void);
 
+//  ========== defines =====================================================================
+// priority of the different threads involved
+#define PRIORITY_ADC                2
+#define PRIORITY_STORAGE            3
+#define PRIORITY_LTA                4
+
 #endif /* APP_STA_LTA_TX_H */

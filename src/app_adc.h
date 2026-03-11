@@ -46,9 +46,6 @@
 
 // priority of the different threads involved
 #define PRIORITY_ADC                2
-#define PRIORITY_STORAGE            3
-#define PRIORITY_LTA                4
-#define PRIORITY_TTN                5
 
 // ========== globals ======================================================================
 extern struct k_sem data_ready_sem;

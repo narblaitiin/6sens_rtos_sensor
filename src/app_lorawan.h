@@ -33,4 +33,7 @@
 #define LORAWAN_PORT            2       // application port
 #define MAX_JOIN_ATTEMPTS       10      // limiting join attempts
 
+// priority of the different threads involved
+#define PRIORITY_TTN                5
+
 #endif /* APP_LORAWAN_H */

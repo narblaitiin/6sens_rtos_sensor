@@ -84,5 +84,5 @@ int app_lorawan_start_tx(void)
 {
     // create the LoRaWAN thread with the defined stack and function
     k_thread_create(&lorawan_ttn_thread_data, lorawan_ttn_stack, K_THREAD_STACK_SIZEOF(lorawan_ttn_stack),
-                    app_lorawan_ttn_thread, NULL, NULL, NULL, PRIORITY_LTA, 0, K_NO_WAIT);
+                    app_lorawan_ttn_thread, NULL, NULL, NULL, PRIORITY_TTN, 0, K_NO_WAIT);
 }
