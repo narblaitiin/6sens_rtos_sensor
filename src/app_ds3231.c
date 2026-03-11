@@ -5,26 +5,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//  ========== includes ==============================================================================
+//  ========== includes ====================================================================
 #include "app_ds3231.h"
 
-//  ========== globals ===============================================================================
+//  ========== globals =====================================================================
 static int64_t system_rtc_offset_ms = 0;
 static struct k_mutex offset_mutex;
 
-//  ========== bcd_to_bin =========================================================================== 
+//  ========== bcd_to_bin ================================================================= 
 static uint8_t bcd_to_bin(uint8_t val)
 {
     return ((val >> 4) * 10) + (val & 0x0F);
 }
 
-// ========== bin_to_bcd ============================================================================
+// ========== bin_to_bcd ===================================================================
 static uint8_t bin_to_bcd(uint8_t val)
 {
     return ((val / 10) << 4) | (val % 10);
 }
 
-// ========== app_i2c_write_time =====================================================================
+// ========== app_i2c_write_time ===========================================================
 int8_t app_i2c_write_time(const struct device *i2c_dev, const struct tm *tm)
 {
     uint8_t time_buf[7];
@@ -52,7 +52,7 @@ int8_t app_i2c_write_time(const struct device *i2c_dev, const struct tm *tm)
     return 0;
 }
 
-//  ========== app_i2c_read_time ==================================================================== 
+//  ========== app_i2c_read_time ========================================================== 
 int8_t app_i2c_read_time(const struct device *i2c_dev, struct tm *tm)
 {
     uint8_t time_buf[7];
@@ -79,7 +79,7 @@ int8_t app_i2c_read_time(const struct device *i2c_dev, struct tm *tm)
     return 0;
 }
 
-//  ========== app_rtc_init ==========================================================================
+//  ========== app_rtc_init ================================================================
 const struct device *app_ds3231_init(void)
 {
     const struct device *i2c_dev = DEVICE_DT_GET_ONE(maxim_ds3231);
@@ -95,7 +95,7 @@ const struct device *app_ds3231_init(void)
     return i2c_dev;
 }
 
-//  ========== app_ds3231_set_time ==================================================================
+//  ========== app_ds3231_set_time =========================================================
 void app_ds3231_set_time(const struct device *i2c_dev, int64_t unix_time)
 {
     struct tm tm;
@@ -105,7 +105,7 @@ void app_ds3231_set_time(const struct device *i2c_dev, int64_t unix_time)
     app_i2c_write_time(i2c_dev, &tm);
 }
 
-//  ========== app_ds3231_sync_uptime ================================================================
+//  ========== app_ds3231_sync_uptime ======================================================
 // synchronize the system uptime with the DS3231 RTC
 int8_t app_ds3231_sync_uptime(const struct device *i2c_dev)
 {
@@ -144,7 +144,7 @@ int8_t app_ds3231_sync_uptime(const struct device *i2c_dev)
     return 0;
 }
 
-//  ========== app_rtc_get_time ======================================================================
+//  ========== app_rtc_get_time ============================================================
 uint64_t app_ds3231_get_time()
 {
     int64_t now_ms = k_uptime_get();
@@ -165,7 +165,7 @@ uint64_t app_ds3231_get_time()
     return timestamp_ms;
 }
 
-//  ========== app_ds3231_periodic_sync ==============================================================
+//  ========== app_ds3231_periodic_sync ====================================================
 int8_t app_ds3231_periodic_sync(const struct device *i2c_dev)
 {
     if (!i2c_dev) {

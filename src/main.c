@@ -55,7 +55,9 @@ int8_t main(void)
     if (!rtc_dev) {
         printk("failed to initialize RTC device\n");
         return 0;
-    }
+    } else {
+		app_ds3231_set_time(rtc_dev, 1773238123); // set to "2026-03-11 14:08:041" UTC
+	}
 
 	// initialize LoRaWAN protocol and register the device
 	const struct device *lora_dev;
@@ -105,10 +107,10 @@ int8_t main(void)
         printk("mount failed. stopping application: %d\n", rc);
         return rc;
     }
-	int clean_fs = false;
+	int clean_fs = true;
 
 	// dump the content of /lfs filesystem
-	//	dump_fs(clean_fs);
+	//dump_fs(clean_fs);
 
 	// enable environmental sensor and battery level thread
 	bth_thread_flag = true;

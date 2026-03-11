@@ -52,8 +52,8 @@ function decodeUplink(input)
         // return decoded values as JSON
         return {
             data: {
-                //Timestamp: readable_date,   // timestamp (human-readable format)
-                Timestamp: date,
+                Timestamp: readable_date,   // timestamp (human-readable format)
+                //Timestamp: date,              // timestamp (unix format)
                 Amplitude: amp_raw,
                 Ratio: ratio_raw
             }
