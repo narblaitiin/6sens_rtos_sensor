@@ -25,14 +25,17 @@ void bth_thread_func(void)
 {
 	printk("sensor thread started\n");
 
+	// wait for main() to finish hardware init before doing anything
+    //k_sleep(K_SECONDS(30));
+
 	while (bth_thread_flag == true) {
         printk("performing periodic action\n");
 		// perform your task: get battery level, temperature and humidity
         (void)app_sensors_handler();
-        k_sleep(K_SECONDS(120));		
+        k_sleep(K_SECONDS(180));		
 	}
 }
-K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_TTN, 0, 0);
+K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_TTN, 0, K_TICKS_FOREVER);
 
 static void lorwan_datarate_changed(enum lorawan_datarate dr)
 {
@@ -56,7 +59,7 @@ int8_t main(void)
         printk("failed to initialize RTC device\n");
         return 0;
     } else {
-		app_ds3231_set_time(rtc_dev, 1773238123); // set to "2026-03-11 14:08:041" UTC
+		//app_ds3231_set_time(rtc_dev, 1773238123); // set to "2026-03-11 14:08:041" UTC
 	}
 
 	// initialize LoRaWAN protocol and register the device
@@ -93,7 +96,7 @@ int8_t main(void)
 	join_cfg.otaa.nwk_key = app_key;
 	join_cfg.otaa.dev_nonce = 0u;
 
-	printk("Joining network over OTAA\n");
+	printk("joining network over OTAA\n");
 	ret = lorawan_join(&join_cfg);
 	if (ret < 0) {
 		printk("lorawan_join_network failed. error %d\n", ret);
@@ -114,6 +117,7 @@ int8_t main(void)
 
 	// enable environmental sensor and battery level thread
 	bth_thread_flag = true;
+	k_thread_start(bth_thread_id);   // start only after HW is ready
 
 	// start ADC sampling
     app_adc_sampling_start();
