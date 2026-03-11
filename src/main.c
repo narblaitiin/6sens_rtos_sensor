@@ -110,7 +110,7 @@ int8_t main(void)
 	int clean_fs = false;
 
 	// dump the content of /lfs filesystem
-	dump_fs(clean_fs);
+	//dump_fs(clean_fs);
 
 	// enable environmental sensor and battery level thread
 	bth_thread_flag = true;
