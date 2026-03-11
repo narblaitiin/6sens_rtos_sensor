@@ -29,7 +29,7 @@ void bth_thread_func(void)
         printk("performing periodic action\n");
 		// perform your task: get battery level, temperature and humidity
         (void)app_sensors_handler();
-        k_sleep(K_SECONDS(300));		
+        k_sleep(K_SECONDS(120));		
 	}
 }
 K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_TTN, 0, 0);
