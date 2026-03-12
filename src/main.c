@@ -7,6 +7,8 @@
 
 //  ========== includes ====================================================================
 #include "app_adc.h"
+#include "app_ds3231.h"
+#include "app_lorawan.h"
 #include "app_sensors.h"
 #include "app_sta_lta_tx.h"
 #include "fs_utils.h"
@@ -19,52 +21,54 @@ static void dl_callback(uint8_t port, bool data_pending,
 	printk("Port %d, Pending %d, RSSI %ddB, SNR %ddBm\n", port, data_pending, rssi, snr);
 }
 
+//  ========== RTC thread ==================================================================
 // thread to have periodic synchronisation of timestamp
+K_SEM_DEFINE(init_done_sem, 0, 1);
+
 void rtc_thread_func(void)
 {
-	k_sem_take(&init_done_sem, K_FOREVER);
+    k_sem_take(&init_done_sem, K_FOREVER);
     const struct device *ds3231_dev = DEVICE_DT_GET_ONE(maxim_ds3231);
 
     while (true) {
-        app_ds3231_periodic_sync(ds3231_dev);   // re-anchor offset
-        k_sleep(K_SECONDS(30));
-    }	
+        k_sleep(K_SECONDS(30));                     // wait first, then sync
+        app_ds3231_periodic_sync(ds3231_dev);       // re-anchor offset to DS3231
+    }
 }
-K_THREAD_DEFINE(rtc_thread_id, STACK_SIZE, rtc_thread_func, NULL, NULL, NULL, 2, 0, K_TICKS_FOREVER);
+K_THREAD_DEFINE(rtc_thread_id, 2048, rtc_thread_func,
+                NULL, NULL, NULL, 2, 0, K_TICKS_FOREVER);
 
+//  ========== sensor thread ===============================================================
 // thread to send environment value when no activity
 bool bth_thread_flag = true;
+
 void bth_thread_func(void)
 {
-	printk("sensor thread started\n");
-
-	// wait for main() to finish hardware init before doing anything
-    //k_sleep(K_SECONDS(30));
-
-	while (bth_thread_flag == true) {
-        printk("performing periodic action\n");
-		// perform your task: get battery level, temperature and humidity
+    printk("sensor thread started\n");
+    while (bth_thread_flag == true) {
+        printk("performing periodic sensor read\n");
         (void)app_sensors_handler();
-        k_sleep(K_SECONDS(180));		
-	}
+        k_sleep(K_SECONDS(180));
+    }
 }
-K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func, NULL, NULL, NULL, PRIORITY_TTN, 0, K_TICKS_FOREVER);
+K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func,
+                NULL, NULL, NULL, PRIORITY_TTN, 0, K_TICKS_FOREVER);
 
+//  ========== LoRaWAN callbacks ===========================================================
 static void lorwan_datarate_changed(enum lorawan_datarate dr)
 {
-	uint8_t unused, max_size;
-
-	lorawan_get_payload_sizes(&unused, &max_size);
-	printk("New Datarate: DR_%d, Max Payload %d\n", dr, max_size);
+    uint8_t unused, max_size;
+    lorawan_get_payload_sizes(&unused, &max_size);
+    printk("new datarate: DR_%d, max payload %d\n", dr, max_size);
 }
 
 //  ========== main ========================================================================
 int8_t main(void)
 {
-	const struct device *dev;
 	int8_t ret;
+	int clean_fs = false;
 
-	printk("Initializtion of RTC Devices\n");
+	printk("initializing RTC Devices\n");
 
 	// initialize DS3231 RTC device via I2C (Pins: SDA -> P0.09, SCL -> P0.0)
 	const struct device *ds3231_dev = app_ds3231_init();
@@ -72,11 +76,16 @@ int8_t main(void)
         printk("failed to initialize DS3231\n");
         return 0;
     }
+
+	// set time (also computes initial offset)
     app_ds3231_set_time(ds3231_dev, 1741773600);
 
-	// start nRF internal RTC counter
+	// start nRF internal RTC counter for sub-second precision
     const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
     counter_start(nrf_rtc);
+
+	// unblock RTC sync thread
+    k_sem_give(&init_done_sem);
 	
 	// initialize LoRaWAN protocol and register the device
 	const struct device *lora_dev;
@@ -121,22 +130,20 @@ int8_t main(void)
 
 	printk("Geophone Measurement and Process Information\n");
 
-	int rc = mount_lfs();
-	if (rc < 0) {
-        printk("mount failed. stopping application: %d\n", rc);
-        return rc;
+	// mount filesystem
+	ret = mount_lfs();
+	if (ret < 0) {
+        printk("mount failed. stopping application: %d\n", ret);
+        return ret;
     }
-	int clean_fs = false;
+	
+	// start threads and sampling only after all HW is ready
+    bth_thread_flag = true;
+    k_thread_start(bth_thread_id);
+    k_thread_start(rtc_thread_id); 
 
 	// dump the content of /lfs filesystem
 	//dump_fs(clean_fs);
-
-	// enable environmental sensor and battery level thread
-	bth_thread_flag = true;
-	k_thread_start(bth_thread_id);   // start only after HW is ready
-
-    // enable RTC synchronisation
-	k_thread_start(rtc_thread_id);	// start only after HW is ready
 
 	// start ADC sampling
     app_adc_sampling_start();
