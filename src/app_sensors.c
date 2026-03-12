@@ -15,7 +15,7 @@ int8_t app_sensors_handler()
     uint8_t byte_payload[BYTE_PAYLOAD] = {0};
 
     // retrieve the current timestamp from the RTC device
-    uint64_t timestamp = app_ds3231_get_time();
+    uint64_t timestamp = app_get_timestamp();
 
     // add timestamp to byte payload (big-endian)
     for (int8_t i = 0; i < 8; i++) {

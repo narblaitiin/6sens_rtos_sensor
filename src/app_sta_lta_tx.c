@@ -96,7 +96,7 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
         k_msgq_get(&lorawan_msgq, &event, K_FOREVER);
 
         // retrieve the current timestamp from the RTC device
-        event.timestamp_ms = app_ds3231_get_time();
+        event.timestamp_ms = app_get_timestamp();
 
         int16_t amp_enc   = float_to_int16(event.max_ampl);
         int16_t ratio_enc = float_to_int16(event.ratio);

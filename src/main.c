@@ -19,6 +19,19 @@ static void dl_callback(uint8_t port, bool data_pending,
 	printk("Port %d, Pending %d, RSSI %ddB, SNR %ddBm\n", port, data_pending, rssi, snr);
 }
 
+// thread to have periodic synchronisation of timestamp
+void rtc_thread_func(void)
+{
+	k_sem_take(&init_done_sem, K_FOREVER);
+    const struct device *ds3231_dev = DEVICE_DT_GET_ONE(maxim_ds3231);
+
+    while (true) {
+        app_ds3231_periodic_sync(ds3231_dev);   // re-anchor offset
+        k_sleep(K_SECONDS(30));
+    }	
+}
+K_THREAD_DEFINE(rtc_thread_id, STACK_SIZE, rtc_thread_func, NULL, NULL, NULL, 2, 0, K_TICKS_FOREVER);
+
 // thread to send environment value when no activity
 bool bth_thread_flag = true;
 void bth_thread_func(void)
@@ -51,17 +64,20 @@ int8_t main(void)
 	const struct device *dev;
 	int8_t ret;
 
-	printk("Initializtion of all Hardware Devices\n");
+	printk("Initializtion of RTC Devices\n");
 
 	// initialize DS3231 RTC device via I2C (Pins: SDA -> P0.09, SCL -> P0.0)
-	const struct device *rtc_dev = app_ds3231_init();
-    if (!rtc_dev) {
-        printk("failed to initialize RTC device\n");
+	const struct device *ds3231_dev = app_ds3231_init();
+    if (!ds3231_dev) {
+        printk("failed to initialize DS3231\n");
         return 0;
-    } else {
-		app_ds3231_set_time(rtc_dev, 1773238123); // set to "2026-03-11 14:08:041" UTC
-	}
+    }
+    app_ds3231_set_time(ds3231_dev, 1741773600);
 
+	// start nRF internal RTC counter
+    const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
+    counter_start(nrf_rtc);
+	
 	// initialize LoRaWAN protocol and register the device
 	const struct device *lora_dev;
 	struct lorawan_join_config join_cfg;
@@ -118,6 +134,9 @@ int8_t main(void)
 	// enable environmental sensor and battery level thread
 	bth_thread_flag = true;
 	k_thread_start(bth_thread_id);   // start only after HW is ready
+
+    // enable RTC synchronisation
+	k_thread_start(rtc_thread_id);	// start only after HW is ready
 
 	// start ADC sampling
     app_adc_sampling_start();
