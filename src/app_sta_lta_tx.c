@@ -7,6 +7,7 @@
 
  //  ========== includes ===================================================================
 #include "app_sta_lta_tx.h"
+#include "app_adc.h"
 #include "app_lorawan.h"
 #include "fs_utils.h"
 

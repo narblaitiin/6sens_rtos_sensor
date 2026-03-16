@@ -66,7 +66,7 @@ static void lorwan_datarate_changed(enum lorawan_datarate dr)
 int8_t main(void)
 {
 	int8_t ret;
-	int clean_fs = false;
+	int clean_fs = true;
 
 	printk("initializing RTC Devices\n");
 
@@ -143,7 +143,7 @@ int8_t main(void)
     k_thread_start(rtc_thread_id); 
 
 	// dump the content of /lfs filesystem
-	//dump_fs(clean_fs);
+	dump_fs(clean_fs);
 
 	// start ADC sampling
     app_adc_sampling_start();

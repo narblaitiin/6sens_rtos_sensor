@@ -33,17 +33,6 @@
 // duration between 2 samples
 #define SAMPLING_RATE_MS            10
 
-// STA and LTA window durations in milliseconds
-#define STA_WINDOW_DURATION_MS      1000     // 1 seconds
-#define LTA_WINDOW_DURATION_MS      10000    // 10 seconds
-
-// ADC buffer size in bytes
-#define ADC_BUFFER_SIZE             (LTA_WINDOW_SIZE * 2) 
-
-// derived buffer sizes
-#define STA_WINDOW_SIZE (STA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
-#define LTA_WINDOW_SIZE (LTA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
-
 // priority of the different threads involved
 #define PRIORITY_ADC                2
 

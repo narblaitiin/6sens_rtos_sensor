@@ -19,6 +19,18 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/ring_buffer.h>
 
+//  ========== defines =====================================================================
+// STA and LTA window durations in milliseconds
+#define STA_WINDOW_DURATION_MS      1000     // 1 seconds
+#define LTA_WINDOW_DURATION_MS      10000    // 10 seconds
+
+// ADC buffer size in bytes
+#define ADC_BUFFER_SIZE             (LTA_WINDOW_SIZE * 2) 
+
+// derived buffer sizes
+#define STA_WINDOW_SIZE (STA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
+#define LTA_WINDOW_SIZE (LTA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
+
 //  ========== prototypes ==================================================================
 static void app_lta_thread(void *arg1, void *arg2, void *arg3);
 void app_sta_lta_start_tx(void);
