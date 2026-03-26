@@ -42,20 +42,9 @@ typedef struct {
 K_MSGQ_DEFINE(lorawan_msgq,  sizeof(lta_event_t),     4, 4);
 K_MSGQ_DEFINE(storage_msgq,  sizeof(storage_event_t), 4, 4);
 
-//  ========== calculate_sta ===============================================================
-// function to calculate the Short-Term Average (STA) of a given buffer
-static float calculate_sta(const uint16_t *buffer, size_t size)
-{
-    float sum = 0.0;
-    for (size_t i = 0; i < size; i++) {
-        sum += (float)buffer[i];
-    }
-    return sum / size;
-}
-
-//  ========== calculate_lta ===============================================================
-// function to calculate the Long-Term Average (LTA) of a given buffer
-static float calculate_lta(const uint16_t *buffer, size_t size)
+//  ========== calculate_average ===============================================================
+// function to calculate the average of a given buffer
+static float calculate_average(const uint16_t *buffer, size_t size)
 {
     float sum = 0.0;
     for (size_t i = 0; i < size; i++) {
@@ -200,8 +189,8 @@ static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
         app_adc_get_buffer(sta_buffer, STA_WINDOW_SIZE, sta_offset);
         app_adc_get_buffer(lta_buffer, LTA_WINDOW_SIZE, lta_offset);
 
-        float sta   = calculate_sta(sta_buffer, STA_WINDOW_SIZE);
-        float lta   = calculate_lta(lta_buffer, LTA_WINDOW_SIZE);
+        float sta   = calculate_average(sta_buffer, STA_WINDOW_SIZE);
+        float lta   = calculate_average(lta_buffer, LTA_WINDOW_SIZE);
         float ratio = (lta > 0.0f) ? (sta / lta) : 0.0f;   // guard divide-by-zero
 
         printk("STA: %.2f, LTA: %.2f, ratio: %.2f\n", sta, lta, ratio);
