@@ -55,9 +55,9 @@ function decodeUplink(input) {
           ID        : id,
           Timestamp : unixTs,
           Amplitude : int16(bytes[5], bytes[6]),
-          STALTA    : int16(bytes[7], bytes[8]),
+          MinLTA    : int16(bytes[7], bytes[8]),
           MaxSTA    : int16(bytes[9], bytes[10]),
-          MinLTAn   : int16(bytes[11], bytes[12])    
+          STALTA   : int16(bytes[11], bytes[12])    
         }
       };
     }
@@ -67,7 +67,7 @@ function decodeUplink(input) {
       if (bytes.length < 13) {            // 1 + 4 + 4 = 9
         return { errors: ["ID 2 payload too short (need 9 bytes)"] };
       }
-      eturn {
+      return {
         data: {
           ID        : id,
           Timestamp : unixTs,
