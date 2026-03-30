@@ -1,62 +1,83 @@
-function decodeUplink(input)
-{
-    // input payload is an array of bytes (e.g., input.bytes)
-    var bytes = input.bytes;
+function decodeUplink(input) {
+  var bytes = input.bytes;
 
-    // check payload length (minimum 14 bytes needed here -> VTH samples)
-    if (bytes.length == 14) {
-        // decode the uint64 timestamp (big-endian representation)
-        var unixTimestamp = (bytes[0] << 56 >>> 0) | (bytes[1] << 48) | (bytes[2] << 40) | (bytes[3] << 32) | (bytes[4] << 24) | (bytes[5] << 16) | (bytes[6] << 8) | bytes[7]; // use `>>> 0` to ensure unsigned shift
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function decodeTimestamp(b, offset) {
+    // uint32 big-endian timestamp (Unix seconds fit in 32 bits until year 2106)
+    return ((b[offset] << 24) | (b[offset+1] << 16) |
+            (b[offset+2] << 8) | b[offset+3]) >>> 0;
+  }
 
-        // convert and display Unix timestamp as a human-readable date and time 
-        var date = new Date(unixTimestamp * 1000); // convert seconds to milliseconds
-        var readable_date = date.toISOString(); // ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
+  function int16(hi, lo) {
+    var v = (hi << 8) | lo;
+    if (v & 0x8000) v -= 0x10000;
+    return v;
+  }
 
-        // decode the int16 values (big-endian representation)
-        var battery = (bytes[8] << 8) | bytes[9];
-        var temperature = (bytes[10] << 8) | bytes[11];
-        var humidity = (bytes[12] << 8) | bytes[13];     
+  // ── Frame structure ───────────────────────────────────────────────────────
+  // Byte 0      : ID
+  // Bytes 1–4   : uint32 Unix timestamp (big-endian)
+  // Bytes 5+    : payload (depends on ID)
 
-        // convert to signed 16-bit integers
-        if (battery & 0x8000) battery -= 0x10000;
-        if (temperature & 0x8000) temperature -= 0x10000;
-        if (humidity & 0x8000) humidity -= 0x10000;
+  if (bytes.length < 5) {
+    return { errors: ["Payload too short (min 5 bytes: 1 ID + 4 timestamp)"] };
+  }
 
-        // return decoded values as JSON
-        return {
-            data: {
-                Timestamp: readable_date,   // timestamp (human-readable format)
-                Battery: battery,           // battery level as int16
-                Temperature: temperature,   // temperature (adjust as needed)
-                Humidity: humidity,         // humidity (adjust as needed)               
-            },
+  var id     = bytes[0];
+  var unixTs = decodeTimestamp(bytes, 1);  // bytes 1-4
+
+  // ── Dispatch ──────────────────────────────────────────────────────────────
+  switch (id) {
+
+    // ── ID 1 : VTH sample (battery + temperature + humidity) ────────────────
+    case 1: {
+      if (bytes.length < 11) {           // 1 + 4 + 6 = 11
+        return { errors: ["ID 1 payload too short (need 11 bytes)"] };
+      }
+      return {
+        data: {
+          ID          : id,
+          Timestamp   : unixTs,
+          Battery     : int16(bytes[5], bytes[6]),
+          Temperature : float(bytes[7], bytes[8])/100,
+          Humidity    : float(bytes[9], bytes[10])/100,
         }
+      };
     }
-    // check payload length (more than 14 bytes neeeded here -> velocity samples)
 
-    else {
-        // decode the uint64 timestamp (big-endian representation)
-        unixTimestamp = (bytes[0] << 56 >>> 0) | (bytes[1] << 48) | (bytes[2] << 40) | (bytes[3] << 32) | (bytes[4] << 24) | (bytes[5] << 16) | (bytes[6] << 8) | bytes[7]; // use `>>> 0` to ensure unsigned shift
-
-         // convert and display Unix timestamp as a human-readable date and time 
-        date = new Date(unixTimestamp * 1000); // convert seconds to milliseconds
-        readable_date = date.toISOString(); // ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
-
-       // decode the int16 values (big-endian representation)
-        var amp_raw   = (input.bytes[8] << 8) | input.bytes[9];
-        var ratio_raw = (input.bytes[10] << 8) | input.bytes[11];
-
-        if (amp_raw & 0x8000) amp_raw -= 0x10000;
-        if (ratio_raw & 0x8000) ratio_raw -= 0x10000;
-
-        // return decoded values as JSON
-        return {
-            data: {
-                Timestamp: readable_date,   // timestamp (human-readable format)
-                //Timestamp: date,              // timestamp (unix format)
-                Amplitude: amp_raw,
-                Ratio: ratio_raw
-            }
-        };
+    // ── ID 2 : Velocity sample (amplitude + ratio) ───────────────────────────
+    case 2: {
+      if (bytes.length < 13) {            // 1 + 4 + 8 = 13
+        return { errors: ["ID 2 payload too short (need 9 bytes)"] };
+      }
+      return {
+        data: {
+          ID        : id,
+          Timestamp : unixTs,
+          Amplitude : int16(bytes[5], bytes[6]),
+          STALTA    : int16(bytes[7], bytes[8]),
+          MaxSTA    : int16(bytes[9], bytes[10]),
+          MinLTAn   : int16(bytes[11], bytes[12])    
+        }
+      };
     }
+
+    // ── ID 3 : Samples values ─────────────────────────────────────────────────
+    case 3: {
+      if (bytes.length < 13) {            // 1 + 4 + 4 = 9
+        return { errors: ["ID 2 payload too short (need 9 bytes)"] };
+      }
+      eturn {
+        data: {
+          ID        : id,
+          Timestamp : unixTs,
+          Sample1 : int16(bytes[5], bytes[6]), 
+          Sample2 : int16(bytes[7], bytes[8]), 
+        }
+      };
+    }
+
+    default:
+      return { errors: ["Unknown ID: " + id] };
+  }
 }
