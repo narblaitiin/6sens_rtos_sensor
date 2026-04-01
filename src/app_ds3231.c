@@ -7,6 +7,7 @@
 
 //  ========== includes ===================================================================
 #include "app_ds3231.h"
+#include <zephyr/sys/timeutil.h>
 
 //  ========== globals ====================================================================
 static int64_t  rtc_offset_ms = 0;   // anchors nRF ticks to DS3231 unix time

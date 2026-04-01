@@ -34,7 +34,7 @@
 #define LTA_WINDOW_SIZE (LTA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
 
 //  ========== prototypes ==================================================================
-static void app_lta_thread(void *arg1, void *arg2, void *arg3);
+void app_lta_thread(void *arg1, void *arg2, void *arg3);
 void app_sta_lta_start_tx(void);
 
 //  ========== defines =====================================================================

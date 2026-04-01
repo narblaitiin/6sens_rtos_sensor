@@ -42,9 +42,9 @@ extern int32_t ring_head;
 
 //  ========== prototypes ==================================================================
 int16_t app_adc_get_bat();
-static int8_t app_adc_read_ch(size_t ch);
+int8_t app_adc_read_ch(size_t ch);
 
-static void app_adc_thread(void *arg1, void *arg2, void *arg3);
+void app_adc_thread(void *arg1, void *arg2, void *arg3);
 
 void app_adc_sampling_start(void);
 void app_adc_sampling_stop(void);

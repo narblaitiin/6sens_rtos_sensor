@@ -53,7 +53,7 @@ K_MSGQ_DEFINE(storage_msgq,  sizeof(storage_event_t), 4, 4);
 
 //  ========== calculate_squared_avg ===============================================================
 // function to calculate the average of a given buffer
-static float calculate_squared_avg(const uint16_t *buffer, size_t size)
+float calculate_squared_avg(const uint16_t *buffer, size_t size)
 {
     float sum = 0.0;
     for (size_t i = 0; i < size; i++) {
@@ -65,7 +65,7 @@ static float calculate_squared_avg(const uint16_t *buffer, size_t size)
 
 //  ========== calculate_avg ===============================================================
 // function to calculate the average of a given buffer
-static float calculate_avg(const uint16_t *buffer, size_t size)
+float calculate_avg(const uint16_t *buffer, size_t size)
 {
     float sum = 0.0;
     for (size_t i = 0; i < size; i++) {
@@ -76,7 +76,7 @@ static float calculate_avg(const uint16_t *buffer, size_t size)
 
 
 //  ========== find_max_amplitude ==========================================================
-static uint16_t find_max_amplitude(const uint16_t *buffer, size_t size)
+uint16_t find_max_amplitude(const uint16_t *buffer, size_t size)
 {
     uint16_t max_val = 0;
     for (size_t i = 0; i < size; i++) {
@@ -87,7 +87,7 @@ static uint16_t find_max_amplitude(const uint16_t *buffer, size_t size)
     return max_val;
 }
 
-static uint16_t find_min_amplitude(const uint16_t *buffer, size_t size)
+uint16_t find_min_amplitude(const uint16_t *buffer, size_t size)
 {
     uint16_t max_val = 0;
     for (size_t i = 0; i < size; i++) {
@@ -100,7 +100,7 @@ static uint16_t find_min_amplitude(const uint16_t *buffer, size_t size)
 
 
 //  ======== float_to_int16 ================================================================
-static int16_t float_to_int16(float val)
+int16_t float_to_int16(float val)
 {
     if (val > 32767.0f) return 32767;
     if (val < -32768.0f) return -32768;
@@ -108,7 +108,7 @@ static int16_t float_to_int16(float val)
 }
 
 // ========== NEW: LoRaWAN send thread ====================================================
-static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
+void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 {
     printk("LoRaWAN thread started\n");
 
@@ -137,7 +137,7 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
         }
         printk("\n");
         while(sent < STA_WINDOW_SIZE) {
-            int nb_to_send = STA_WINDOW_SIZE - sent;
+            size_t nb_to_send = STA_WINDOW_SIZE - sent;
             // Ceil to MAX_SAMPLES
             if(nb_to_send > MAX_SAMPLES) {
                 nb_to_send = MAX_SAMPLES;
@@ -156,7 +156,7 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 }
 
 //  ========== app_lta_thread ==============================================================
-static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
+void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 {
     printk("STA/LTA thread started\n");
     // threshold above which we consider an event detected
@@ -164,10 +164,7 @@ static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 
     last_anomaly_time = k_uptime_get() + 100000;
     while (1) {
-        int64_t start = k_uptime_get();
         k_sem_take(&data_ready_sem, K_FOREVER);
-        int32_t sta_offset = (ring_head - STA_WINDOW_SIZE) % ADC_BUFFER_SIZE;
-        int32_t lta_offset = (ring_head - LTA_WINDOW_SIZE) % ADC_BUFFER_SIZE;
 
         app_adc_get_buffer(sta_buffer, STA_WINDOW_SIZE, - STA_WINDOW_SIZE);
         app_adc_get_buffer(lta_buffer, LTA_WINDOW_SIZE, - LTA_WINDOW_SIZE);
@@ -176,13 +173,6 @@ static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
         float lta   = calculate_squared_avg(lta_buffer, LTA_WINDOW_SIZE);
         float ratio = (lta > 0.0f) ? (sta / lta) : 0.0f;   // guard divide-by-zero
         
-        if(ring_head %20 == 0) {
-            uint64_t delta = k_uptime_get() - start;
-            // printk("Delta : %lld, STA: %.2f, LTA: %.2f, ratio: %.2f\n", delta, sta, lta, ratio);
-        }
-        
-        // printk("%d - %d\n", end_memory_mvt-start_lta, computed_average - start_lta);
-
         if (k_uptime_get() - last_anomaly_time < MINIMAL_DELAY_ANOMALY_MS) {
             // printk("Detected anomaly %lld ms ago, skipping\n", k_uptime_get() - last_anomaly_time);
             continue;
@@ -203,13 +193,13 @@ static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
                 .ratio    = ratio,
             };
             
-            memcpy(send_buffer, sta_buffer, STA_WINDOW_SIZE);
+            memcpy(send_buffer, sta_buffer, STA_WINDOW_SIZE*2);
 
             if (k_msgq_put(&lorawan_msgq, &l_evt, K_NO_WAIT) != 0) {
                 printk("warning: LoRaWAN queue full, event dropped\n");
             }
 
-            printk("event detected: max amplitude: %u, ratio: %.2f\n", max_amp, ratio);
+            printk("event detected: max amplitude: %u, ratio: %.2f\n", max_amp, (double) ratio);
         }
     }
 }
