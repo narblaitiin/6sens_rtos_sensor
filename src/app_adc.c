@@ -17,7 +17,6 @@ static uint16_t ring_buffer[ADC_BUFFER_SIZE];
 static uint32_t sampling_rate_ms = SAMPLING_RATE_MS;
 static uint16_t sample_buffer;
 static bool stop_sampling = false;
-static bool adc_initialized = false;
 
 // ADC channel configuration obtained from the device tree
 #define DT_SPEC_AND_COMMA(node_id, prop, idx) \
@@ -69,7 +68,7 @@ static const struct {
 };
 
 //  ========== app_adc_read_ch =============================================================
-static int8_t app_adc_read_ch(size_t ch)
+int8_t app_adc_read_ch(size_t ch)
 {
     int err;
     const struct adc_dt_spec *spec = &adc_channels[ch];
@@ -137,8 +136,6 @@ uint8_t mv_to_batlevel(int v_bat) {
 //  ========== app_adc_get_bat =============================================================
 int16_t app_adc_get_bat()
 {
-    int16_t percent = 0;
-
     // read sample from the ADC
     app_adc_read_ch(1);
 
@@ -154,7 +151,7 @@ int16_t app_adc_get_bat()
 }
 
 // //  ========== adc_thread ===============================================================
-static void app_adc_thread(void *arg1, void *arg2, void *arg3)
+void app_adc_thread(void *arg1, void *arg2, void *arg3)
 {
     while (!stop_sampling) {
          if (app_adc_read_ch(0) == 0) {

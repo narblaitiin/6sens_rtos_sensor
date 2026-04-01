@@ -10,6 +10,7 @@
 #include "app_ds3231.h"
 #include "lorawan.h"
 #include "app_sensors.h"
+#include "periodic_samples.h"
 #include "app_sta_lta_tx.h"
 #include "fs_utils.h"
 
@@ -49,10 +50,9 @@ K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func,
 
 
 //  ========== main ========================================================================
-int8_t main(void)
+int main(void)
 {
 	int8_t ret;
-	int clean_fs = true;
 
 	printk("initializing RTC Devices\n");
 
