@@ -10,8 +10,8 @@
 
 //  ========== includes ====================================================================
 #include "app_adc.h"
-#include "app_lorawan.h"
 #include "app_sht31.h"
+#include "lorawan.h"
 
 //  ========== defines =====================================================================
 #define BYTE_PAYLOAD    12                  // 6 int16 values => 12 bytes                 
