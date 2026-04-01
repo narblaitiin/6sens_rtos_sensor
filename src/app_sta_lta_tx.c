@@ -8,27 +8,36 @@
  //  ========== includes ===================================================================
 #include "app_sta_lta_tx.h"
 #include "app_adc.h"
-#include "app_lorawan.h"
+#include "app_ds3231.h"
+#include "data_types.h"
+#include "lorawan.h"
 #include "fs_utils.h"
 
 //  ========== globals =====================================================================
 K_THREAD_STACK_DEFINE(sta_lta_stack, 4096);
 K_THREAD_STACK_DEFINE(lorawan_stack, 2048);
-K_THREAD_STACK_DEFINE(storage_stack, 4096);
 
 // declare thread data structure 
 struct k_thread sta_lta_thread_data;
 struct k_thread lorawan_thread_data;
-struct k_thread storage_thread_data;
+struct k_thread lorawan_thread_data;
 
 // buffer to hold the Short-Term Average (STA) and Long-Term Average (LTA) samples
 static uint16_t sta_buffer[STA_WINDOW_SIZE];
 static uint16_t lta_buffer[LTA_WINDOW_SIZE];
 
+// buffer to hold a signal sample of 1 second, to send via LoRaWAN - TODO : Make it so we can handle multiple 1s samples at a time
+static uint16_t send_buffer[STA_WINDOW_SIZE];
+
+// Timer to check when the last LTA/STA ratio exceed the threshold
+uint64_t last_anomaly_time;
+
 // message structure to pass detection results to LoRaWAN sender
 typedef struct {
-    int64_t timestamp_ms;
-    float max_ampl;
+    uint64_t timestamp_ms;
+    int16_t max_ampl;
+    int16_t min_ampl;
+    int16_t mean_ampl;
     float ratio;
 } lta_event_t;
 
@@ -42,27 +51,29 @@ typedef struct {
 K_MSGQ_DEFINE(lorawan_msgq,  sizeof(lta_event_t),     4, 4);
 K_MSGQ_DEFINE(storage_msgq,  sizeof(storage_event_t), 4, 4);
 
-//  ========== calculate_sta ===============================================================
-// function to calculate the Short-Term Average (STA) of a given buffer
-static float calculate_sta(const uint16_t *buffer, size_t size)
+//  ========== calculate_squared_avg ===============================================================
+// function to calculate the average of a given buffer
+static float calculate_squared_avg(const uint16_t *buffer, size_t size)
 {
     float sum = 0.0;
     for (size_t i = 0; i < size; i++) {
-        sum += (float)buffer[i];
+        float x = (float) (buffer[i] - 1770);
+        sum += x * x;
     }
     return sum / size;
 }
 
-//  ========== calculate_lta ===============================================================
-// function to calculate the Long-Term Average (LTA) of a given buffer
-static float calculate_lta(const uint16_t *buffer, size_t size)
+//  ========== calculate_avg ===============================================================
+// function to calculate the average of a given buffer
+static float calculate_avg(const uint16_t *buffer, size_t size)
 {
     float sum = 0.0;
     for (size_t i = 0; i < size; i++) {
-        sum += (float)buffer[i];
+        sum += (float) (buffer[i]);
     }
     return sum / size;
 }
+
 
 //  ========== find_max_amplitude ==========================================================
 static uint16_t find_max_amplitude(const uint16_t *buffer, size_t size)
@@ -75,6 +86,18 @@ static uint16_t find_max_amplitude(const uint16_t *buffer, size_t size)
     }
     return max_val;
 }
+
+static uint16_t find_min_amplitude(const uint16_t *buffer, size_t size)
+{
+    uint16_t max_val = 0;
+    for (size_t i = 0; i < size; i++) {
+        if (buffer[i] < max_val) {
+            max_val = buffer[i];
+        }
+    }
+    return max_val;
+}
+
 
 //  ======== float_to_int16 ================================================================
 static int16_t float_to_int16(float val)
@@ -90,136 +113,97 @@ static void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
     printk("LoRaWAN thread started\n");
 
     lta_event_t event;
-    uint8_t payload[12];
+    int ret;
 
     while (1) {
         // block until a detection event is enqueued
         k_msgq_get(&lorawan_msgq, &event, K_FOREVER);
 
-        // retrieve the current timestamp from the RTC device
-        event.timestamp_ms = app_get_timestamp();
+        struct anomaly_payload_t payload;
+        payload.max = event.max_ampl;
+        payload.min = event.min_ampl;
+        payload.mean = event.mean_ampl;
+        payload.stalta = float_to_int16(event.ratio * 100);
+        
+        lora_send_timestamp(ANOMALY, event.timestamp_ms, (uint8_t *) &payload, sizeof(struct anomaly_payload_t));
+        
+        int sent = 0;
+        int64_t elapsed_time = 0;
 
-        int16_t amp_enc   = float_to_int16(event.max_ampl);
-        int16_t ratio_enc = float_to_int16(event.ratio);
-        //printk("int16: amp = %d mV, ratio = %d", amp_enc, ratio_enc);
-
-        // add timestamp to byte payload (big-endian)
-        for (int8_t i = 0; i < 8; i++) {
-            payload[i] = (event.timestamp_ms >> (56 - i * 8)) & 0xFF;
+        int16_t * p = send_buffer;
+        printk("Samples :");
+        for(int i=0; i<STA_WINDOW_SIZE; i++) {
+            printk("%x ", p[i]);
         }
-
-        payload[8] = (amp_enc  >> 8) & 0xFF;
-        payload[9] =  amp_enc & 0xFF;
-        payload[10] = (ratio_enc >> 8) & 0xFF;
-        payload[11] =  ratio_enc & 0xFF;
-
-        int8_t ret = lorawan_send(LORAWAN_PORT, payload, sizeof(payload), LORAWAN_MSG_UNCONFIRMED);
-        if (ret < 0) {
-            printk("lorawan_send failed: %d\n", ret);
-            return ret == -EAGAIN ? 0 : ret;
-        }
-    }
-}
-
-// ========== app_storage_thread: rewritten to use app_adc_get_buffer ====================
-static void app_storage_thread(void *arg1, void *arg2, void *arg3)
-{
-    printk("Storage thread started\n");
-
-    struct fs_file_t file;
-    fs_file_t_init(&file);
-
-    static int file_index = 0;
-    char file_path[32];
-    snprintf(file_path, sizeof(file_path), "%s_%03d%s", FILE_PREFIX, file_index, FILE_EXT);
-
-    int rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
-    if (rc < 0) {
-        printk("file open failed. error: %d\n", rc);
-        return;
-    }
-
-    size_t   current_file_size = fs_tell(&file);
-    storage_event_t event;
-
-    // reuse STA window size — one window of samples written per ADC event
-    static uint16_t storage_buf[STA_WINDOW_SIZE];
-
-    while (1) {
-        k_msgq_get(&storage_msgq, &event, K_FOREVER);
-
-        // compute offset: read the STA_WINDOW_SIZE samples ending at head_snapshot
-        int32_t offset = (event.head_snapshot - STA_WINDOW_SIZE + ADC_BUFFER_SIZE)
-                         % ADC_BUFFER_SIZE;
-
-        // use the same safe, mutex-protected function as the STA/LTA thread
-        app_adc_get_buffer(storage_buf, STA_WINDOW_SIZE, offset);
-
-        size_t byte_len = STA_WINDOW_SIZE * sizeof(uint16_t);
-        rc = fs_write(&file, storage_buf, byte_len);
-        if (rc < 0) {
-            printk("flash write failed. error: %d\n", rc);
-        } else {
-            current_file_size += byte_len;
-        }
-
-        // rotate file when max size is reached
-        if (current_file_size >= MAX_FILE_SIZE) {
-            fs_close(&file);
-            file_index++;
-            snprintf(file_path, sizeof(file_path), "%s_%03d%s",
-                     FILE_PREFIX, file_index, FILE_EXT);
-            fs_file_t_init(&file);
-            rc = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND);
-            if (rc < 0) {
-                printk("failed to open new file. error: %d\n", rc);
-                return;
+        printk("\n");
+        while(sent < STA_WINDOW_SIZE) {
+            int nb_to_send = STA_WINDOW_SIZE - sent;
+            // Ceil to MAX_SAMPLES
+            if(nb_to_send > MAX_SAMPLES) {
+                nb_to_send = MAX_SAMPLES;
             }
-            current_file_size = 0;
-            printk("rotated to new file: %s\n", file_path);
+            ret = lora_send_timestamp(SAMPLES, event.timestamp_ms + elapsed_time, (uint8_t *) p, nb_to_send * 2);
+            if(ret == 0) {
+                p += nb_to_send;
+                sent += nb_to_send;
+                elapsed_time += nb_to_send * SAMPLING_RATE_MS; 
+            } else {
+                printk("Could not send signal with anomaly, retrying in 30s");
+                k_msleep(30000);
+            }
         }
     }
-
-    fs_close(&file);
 }
 
 //  ========== app_lta_thread ==============================================================
 static void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 {
     printk("STA/LTA thread started\n");
-
     // threshold above which we consider an event detected
-    const float DETECTION_RATIO = 3.0f;
+    const float DETECTION_RATIO = 4.f;
 
+    last_anomaly_time = k_uptime_get() + 100000;
     while (1) {
+        int64_t start = k_uptime_get();
         k_sem_take(&data_ready_sem, K_FOREVER);
+        int32_t sta_offset = (ring_head - STA_WINDOW_SIZE) % ADC_BUFFER_SIZE;
+        int32_t lta_offset = (ring_head - LTA_WINDOW_SIZE) % ADC_BUFFER_SIZE;
 
-        int32_t sta_offset = (ring_head - STA_WINDOW_SIZE + ADC_BUFFER_SIZE) % ADC_BUFFER_SIZE;
-        int32_t lta_offset = (ring_head - LTA_WINDOW_SIZE + ADC_BUFFER_SIZE) % ADC_BUFFER_SIZE;
+        app_adc_get_buffer(sta_buffer, STA_WINDOW_SIZE, - STA_WINDOW_SIZE);
+        app_adc_get_buffer(lta_buffer, LTA_WINDOW_SIZE, - LTA_WINDOW_SIZE);
 
-        app_adc_get_buffer(sta_buffer, STA_WINDOW_SIZE, sta_offset);
-        app_adc_get_buffer(lta_buffer, LTA_WINDOW_SIZE, lta_offset);
-
-        float sta   = calculate_sta(sta_buffer, STA_WINDOW_SIZE);
-        float lta   = calculate_lta(lta_buffer, LTA_WINDOW_SIZE);
+        float sta   = calculate_squared_avg(sta_buffer, STA_WINDOW_SIZE);
+        float lta   = calculate_squared_avg(lta_buffer, LTA_WINDOW_SIZE);
         float ratio = (lta > 0.0f) ? (sta / lta) : 0.0f;   // guard divide-by-zero
+        
+        if(ring_head %20 == 0) {
+            uint64_t delta = k_uptime_get() - start;
+            // printk("Delta : %lld, STA: %.2f, LTA: %.2f, ratio: %.2f\n", delta, sta, lta, ratio);
+        }
+        
+        // printk("%d - %d\n", end_memory_mvt-start_lta, computed_average - start_lta);
 
-        printk("STA: %.2f, LTA: %.2f, ratio: %.2f\n", sta, lta, ratio);
-
-        // before DSP — snapshot ring_head and pass it to the storage thread
-        storage_event_t s_evt = {
-            .head_snapshot = ring_head,   // capture position before it advances
-        };
-
+        if (k_uptime_get() - last_anomaly_time < MINIMAL_DELAY_ANOMALY_MS) {
+            // printk("Detected anomaly %lld ms ago, skipping\n", k_uptime_get() - last_anomaly_time);
+            continue;
+        }
         // only send LoRaWAN when a seismic event is detected
         if (ratio >= DETECTION_RATIO) {
+            last_anomaly_time = k_uptime_get();
+            uint64_t timestamp = app_get_timestamp();
             uint16_t max_amp = find_max_amplitude(sta_buffer, STA_WINDOW_SIZE);
+            uint16_t min_amp = find_min_amplitude(sta_buffer, STA_WINDOW_SIZE);
+            uint16_t mean = (uint16_t) calculate_avg(sta_buffer, STA_WINDOW_SIZE);
 
             lta_event_t l_evt = {
-                .timestamp_ms  = k_uptime_get(),
-                .max_ampl = (float)max_amp,
-                .ratio         = ratio,
+                .timestamp_ms  = timestamp,
+                .max_ampl = max_amp,
+                .min_ampl = min_amp,
+                .mean_ampl = mean,
+                .ratio    = ratio,
             };
+            
+            memcpy(send_buffer, sta_buffer, STA_WINDOW_SIZE);
 
             if (k_msgq_put(&lorawan_msgq, &l_evt, K_NO_WAIT) != 0) {
                 printk("warning: LoRaWAN queue full, event dropped\n");
@@ -246,10 +230,4 @@ void app_sta_lta_start_tx(void)
                     K_THREAD_STACK_SIZEOF(lorawan_stack),
                     app_lorawan_thread, NULL, NULL, NULL,
                     PRIORITY_TTN + 1, 0, K_NO_WAIT);
-
-    // sample storage thread (lowest priority — background write)
-    // k_thread_create(&storage_thread_data, storage_stack,
-    //                 K_THREAD_STACK_SIZEOF(storage_stack),
-    //                 app_storage_thread, NULL, NULL, NULL,
-    //                 PRIORITY_STORAGE + 2, 0, K_NO_WAIT);
 }

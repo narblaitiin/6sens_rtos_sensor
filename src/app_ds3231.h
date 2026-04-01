@@ -14,7 +14,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/counter.h>
 #include <zephyr/drivers/i2c.h>
-#include <zephyr/posix/time.h>
+#include <time.h>
 
 //  ========== defines ===============================================================================
 #define DS3231_I2C_ADDR     0x68

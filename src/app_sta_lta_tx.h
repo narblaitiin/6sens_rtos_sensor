@@ -10,7 +10,6 @@
 
 //  ========== includes ====================================================================
 #include "app_adc.h"
-#include "fs_utils.h"
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
@@ -23,6 +22,9 @@
 // STA and LTA window durations in milliseconds
 #define STA_WINDOW_DURATION_MS      1024     // 1 seconds
 #define LTA_WINDOW_DURATION_MS      16384    // 10 seconds
+
+// Minimal time between two anomalies
+#define MINIMAL_DELAY_ANOMALY_MS 10000
 
 // ADC buffer size in bytes
 #define ADC_BUFFER_SIZE             (LTA_WINDOW_SIZE * 2) 
