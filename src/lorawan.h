@@ -17,6 +17,8 @@
 #include <zephyr/lorawan/lorawan.h>
 #include <zephyr/random/random.h>
 
+#include "data_types.h"
+
 //  ========== defines =====================================================================
 // customize based on network configuration
 // node-1-otaa
@@ -36,4 +38,8 @@
 // priority of the different threads involved
 #define PRIORITY_TTN                5
 
+int lora_init();
+int lora_joinnet();
+int lora_send_packet(PACKET_TYPE type, uint8_t * payload, int payload_size);
+int lora_send_timestamp(PACKET_TYPE type, uint64_t timestamp, uint8_t * payload, int payload_size);
 #endif /* APP_LORAWAN_H */

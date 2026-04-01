@@ -8,7 +8,8 @@
  //  ========== includes ===================================================================
 #include "app_adc.h"
 #include "app_sta_lta_tx.h"
-#include "app_lorawan.h"
+
+#include <zephyr/kernel.h>
 
 //  ========== globals =====================================================================
 // ADC buffer to store raw ADC readings
@@ -106,22 +107,8 @@ static int8_t app_adc_read_ch(size_t ch)
     return 0;
 }
 
-//  ========== app_adc_get_bat =============================================================
-int16_t app_adc_get_bat()
-{
-    int16_t percent = 0;
-
-    // read sample from the ADC
-    app_adc_read_ch(1);
-
-    // convert raw ADC reading to voltage
-    int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
-    printk("convert voltage AIN1: %d mV\n", v_adc);
-
-    // scale back to actual battery voltage using voltage divider
-    int32_t v_bat = (v_adc * DIVIDER_RATIO_NUM) / DIVIDER_RATIO_DEN;
-    printk("convert voltage BATT: %d mv\n", v_bat);
-
+// Convert battery voltage in mV to battery level (0% to 100%) 
+uint8_t mv_to_batlevel(int v_bat) {
     // convert to volts
     float vbat = v_bat / 1000.0f;  
 
@@ -144,9 +131,26 @@ int16_t app_adc_get_bat()
         }
     }
 
-    percent = soc;
-    printk("battery level: %d %%\n", percent);
-    return percent;
+    return soc;
+}
+
+//  ========== app_adc_get_bat =============================================================
+int16_t app_adc_get_bat()
+{
+    int16_t percent = 0;
+
+    // read sample from the ADC
+    app_adc_read_ch(1);
+
+    // convert raw ADC reading to voltage
+    int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
+    printk("convert voltage AIN1: %d mV\n", v_adc);
+
+    // scale back to actual battery voltage using voltage divider
+    int32_t v_bat = (v_adc * DIVIDER_RATIO_NUM) / DIVIDER_RATIO_DEN;
+    printk("convert voltage BATT: %d mv\n", v_bat);
+
+    return v_bat;
 }
 
 // //  ========== adc_thread ===============================================================
@@ -154,6 +158,7 @@ static void app_adc_thread(void *arg1, void *arg2, void *arg3)
 {
     while (!stop_sampling) {
          if (app_adc_read_ch(0) == 0) {
+            
             k_mutex_lock(&buffer_lock, K_FOREVER);
 
             int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;

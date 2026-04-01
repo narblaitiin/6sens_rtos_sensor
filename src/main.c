@@ -8,18 +8,10 @@
 //  ========== includes ====================================================================
 #include "app_adc.h"
 #include "app_ds3231.h"
-#include "app_lorawan.h"
+#include "lorawan.h"
 #include "app_sensors.h"
 #include "app_sta_lta_tx.h"
 #include "fs_utils.h"
-
-//  ========== globals =====================================================================
-static void dl_callback(uint8_t port, bool data_pending,
-			int16_t rssi, int8_t snr,
-			uint8_t len, const uint8_t *hex_data)
-{
-	printk("Port %d, Pending %d, RSSI %ddB, SNR %ddBm\n", port, data_pending, rssi, snr);
-}
 
 //  ========== RTC thread ==================================================================
 // thread to have periodic synchronisation of timestamp
@@ -54,13 +46,7 @@ void bth_thread_func(void)
 K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func,
                 NULL, NULL, NULL, PRIORITY_TTN, 0, K_TICKS_FOREVER);
 
-//  ========== LoRaWAN callbacks ===========================================================
-static void lorwan_datarate_changed(enum lorawan_datarate dr)
-{
-    uint8_t unused, max_size;
-    lorawan_get_payload_sizes(&unused, &max_size);
-    printk("new datarate: DR_%d, max payload %d\n", dr, max_size);
-}
+
 
 //  ========== main ========================================================================
 int8_t main(void)
@@ -86,70 +72,32 @@ int8_t main(void)
 
 	// unblock RTC sync thread
     k_sem_give(&init_done_sem);
-	
-	// initialize LoRaWAN protocol and register the device
-	const struct device *lora_dev;
-	struct lorawan_join_config join_cfg;
-	uint8_t dev_eui[] = LORAWAN_DEV_EUI;
-	uint8_t join_eui[] = LORAWAN_JOIN_EUI;
-	uint8_t app_key[] = LORAWAN_APP_KEY;
 
-	struct lorawan_downlink_cb downlink_cb = {
-		.port = LW_RECV_PORT_ANY,
-		.cb = dl_callback
-	};
-
-	lora_dev = DEVICE_DT_GET(DT_ALIAS(lora0));
-	if (!device_is_ready(lora_dev)) {
-		printk("%s: device not ready\n", lora_dev->name);
-		return 0;
+	ret = lora_init();
+	if (ret != 0) {
+		printk("[ERROR] Could not initalize LoRa\n");
+		return -1; // TODO make the sensor reset on failure
 	}
 
-	ret = lorawan_start();
-	if (ret < 0) {
-		printk("lorawan_start failed. error: %d", ret);
-		return 0;
+	ret = lora_joinnet();
+	if (ret != 0) {
+		printk("[ERROR] Could not connect to LoRa net\n");
+		return -1; // TODO make the sensor reset on failure
 	}
-
-	lorawan_register_downlink_callback(&downlink_cb);
-	lorawan_register_dr_changed_callback(lorwan_datarate_changed);
-
-	join_cfg.mode = LORAWAN_ACT_OTAA;
-	join_cfg.dev_eui = dev_eui;
-	join_cfg.otaa.join_eui = join_eui;
-	join_cfg.otaa.app_key = app_key;
-	join_cfg.otaa.nwk_key = app_key;
-	join_cfg.otaa.dev_nonce = 0u;
-
-	printk("joining network over OTAA\n");
-	ret = lorawan_join(&join_cfg);
-	if (ret < 0) {
-		printk("lorawan_join_network failed. error %d\n", ret);
-		return 0;
-	}
-
 	printk("Geophone Measurement and Process Information\n");
 
-	// mount filesystem
-	ret = mount_lfs();
-	if (ret < 0) {
-        printk("mount failed. stopping application: %d\n", ret);
-        return ret;
-    }
-	
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
     k_thread_start(bth_thread_id);
     k_thread_start(rtc_thread_id); 
-
-	// dump the content of /lfs filesystem
-	dump_fs(clean_fs);
 
 	// start ADC sampling
     app_adc_sampling_start();
 
 	// start storage and strategy to watch an event with sent the event
 	app_sta_lta_start_tx();
-
+    
+    // Start to send a periodic sample every hour
+    start_periodic_sample();
 	return 0;
 }
