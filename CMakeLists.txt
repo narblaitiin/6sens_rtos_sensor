@@ -5,3 +5,12 @@ project(6sens_rtos_sensor)
 
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE ${app_sources})
+
+# NODE ID handling
+set(env_node_id $ENV{NODE_ID})
+if(NOT DEFINED ENV{NODE_ID})
+    message(FATAL_ERROR "La variable d'environnement NODE_ID n'est pas définie ! Faites 'export NODE_ID=X'")
+endif()
+message("Building for NODE ${env_node_id}")
+zephyr_compile_definitions(NODE_ID=${env_node_id})
+

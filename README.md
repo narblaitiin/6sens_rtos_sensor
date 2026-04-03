@@ -38,9 +38,16 @@ You will need to register new devices in your application (with OTAA activation 
 The following commands clean build folder, build and flash the sample:
 
 **Command to use**
-````
+````bash
+# First, export your NODE_ID 
+export NODE_ID=X
+
+# Clean the existing build
 west build -t pristine
 
+# Build the application
 west build -p always -b mdbt50q_lora_dev applications/6sens_rtos_sensor
 
+# Flash it
 west flash --runner jlink
+```

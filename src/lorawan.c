@@ -123,10 +123,18 @@ int lora_send_timestamp(PACKET_TYPE type, uint64_t timestamp, uint8_t * payload,
     }
     printk("\n");
 
-    int ret = lorawan_send(LORAWAN_PORT, (int8_t *) &packet, payload_size + header_size, LORAWAN_MSG_UNCONFIRMED);
-    printk("Message sent\n");
-    if (ret < 0) {
-        printk("lorawan_send failed: %d\n", ret);
+    int ret = -1;
+    while (ret != 0) {
+        ret = lorawan_send(LORAWAN_PORT, (int8_t *) &packet, payload_size + header_size, LORAWAN_MSG_UNCONFIRMED);
+        printk("Message sent\n");
+        if (ret != 0) {
+            printk("lorawan_send failed: %d\n", ret);
+            if(lora_joinnet()) {
+                printk("[ERROR] Could not join LoRa network\n");
+            }
+            k_sleep(K_SECONDS(30)); 
+        }
+    
     }
 
     // return ret == -EAGAIN ? 0 : ret;

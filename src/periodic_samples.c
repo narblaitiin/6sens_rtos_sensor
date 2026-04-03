@@ -1,6 +1,7 @@
 #include "periodic_samples.h"
 
 #include <zephyr/kernel.h>
+#include "config.h"
 #include "app_sta_lta_tx.h"
 #include "lorawan.h"
 
@@ -43,7 +44,7 @@ static void periodic_sample_app(void *arg1, void *arg2, void *arg3) {
     app_adc_get_buffer(buffer, STA_WINDOW_SIZE, -STA_WINDOW_SIZE);
     p = get_statistics(buffer, STA_WINDOW_SIZE);
     lora_send_packet(PERIODIC_SAMPLE, (uint8_t *) &p, sizeof(p));
-    k_sleep(K_SECONDS(180));
+    k_sleep(PERIODIC_SAMPLE_PERIOD);
 }
 
 void start_periodic_sample(void)
@@ -52,6 +53,6 @@ void start_periodic_sample(void)
     k_thread_create(&periodic_thread_data, periodic_thread_stack,
                     K_THREAD_STACK_SIZEOF(periodic_thread_stack),
                     periodic_sample_app, NULL, NULL, NULL,
-                    5, 0, K_NO_WAIT);
+                    5, 0, PERIODIC_SAMPLE_PERIOD);
 
 }

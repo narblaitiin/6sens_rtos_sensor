@@ -7,6 +7,7 @@
 
 //  ========== includes ====================================================================
 #include "app_adc.h"
+#include "config.h"
 #include "app_ds3231.h"
 #include "lorawan.h"
 #include "app_sensors.h"
@@ -41,7 +42,7 @@ void bth_thread_func(void)
     while (bth_thread_flag == true) {
         printk("performing periodic sensor read\n");
         (void)app_sensors_handler();
-        k_sleep(K_SECONDS(180));
+        k_sleep(BTH_PERIOD);
     }
 }
 K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func,
@@ -88,7 +89,9 @@ int main(void)
 
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
-    k_thread_start(bth_thread_id);
+    if(BTH_ENABLE != 0) {
+        k_thread_start(bth_thread_id);
+    }
     k_thread_start(rtc_thread_id); 
 
 	// start ADC sampling
@@ -98,6 +101,9 @@ int main(void)
 	app_sta_lta_start_tx();
     
     // Start to send a periodic sample every hour
-    start_periodic_sample();
+    if(PERIODIC_SAMPLE_ENABLE != 0) {
+        start_periodic_sample();
+    }
+
 	return 0;
 }
