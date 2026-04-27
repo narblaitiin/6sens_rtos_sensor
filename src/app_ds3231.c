@@ -9,6 +9,10 @@
 #include "app_ds3231.h"
 #include <zephyr/sys/timeutil.h>
 
+#include "config.h" // for log level
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(ds3231);
+
 //  ========== globals ====================================================================
 static int64_t  rtc_offset_ms = 0;   // anchors nRF ticks to DS3231 unix time
 static struct k_mutex offset_mutex;
@@ -39,7 +43,7 @@ static int ds3231_read_unix(uint32_t *unix_secs)
 
     int ret = i2c_write_read(i2c, DS3231_I2C_ADDR, &reg, 1, buf, 7);
     if (ret < 0) {
-        printk("DS3231 i2c read failed: %d\n", ret);
+        LOG_ERR("DS3231 i2c read failed: %d", ret);
         return ret;
     }
 
@@ -56,7 +60,7 @@ static int ds3231_read_unix(uint32_t *unix_secs)
     // convert to unix seconds
     *unix_secs = (uint32_t)timeutil_timegm64(&utc);
 
-    printk("DS3231 direct read: %02d:%02d:%02d %02d/%02d/%04d -> unix=%u\n",
+    LOG_INF("DS3231 direct read: %02d:%02d:%02d %02d/%02d/%04d -> unix=%u",
            utc.tm_hour, utc.tm_min, utc.tm_sec,
            utc.tm_mday, utc.tm_mon + 1, utc.tm_year + 1900,
            *unix_secs);
@@ -70,12 +74,12 @@ const struct device *app_ds3231_init(void)
     //const struct device *dev = DEVICE_DT_GET_ONE(maxim_ds3231);
     const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
     if (!device_is_ready(dev)) {   // ← correct check
-        printk("DS3231 not ready\n");
+        LOG_ERR("DS3231 not ready");
         return NULL;
     }
 
     k_mutex_init(&offset_mutex);
-    printk("DS3231 ready\n");
+    LOG_INF("DS3231 ready");
     return dev;
 }
 
@@ -88,7 +92,7 @@ int8_t app_ds3231_set_time(const struct device *ds3231_dev, uint32_t unix_secs)
 
     const struct device *i2c = DEVICE_DT_GET(DT_NODELABEL(i2c0));
     if (!device_is_ready(i2c)) {
-        printk("I2C bus not ready\n");
+        LOG_ERR("I2C bus not ready");
         return -ENODEV;
     }
 
@@ -108,7 +112,7 @@ int8_t app_ds3231_set_time(const struct device *ds3231_dev, uint32_t unix_secs)
 
     int ret = i2c_write(i2c, buf, sizeof(buf), DS3231_I2C_ADDR);
     if (ret < 0) {
-        printk("i2c_write failed: %d\n", ret);
+        LOG_ERR("i2c_write failed: %d", ret);
         return ret;
     }
 
@@ -127,8 +131,7 @@ int8_t app_ds3231_set_time(const struct device *ds3231_dev, uint32_t unix_secs)
     k_mutex_lock(&offset_mutex, K_FOREVER);
     rtc_offset_ms = target_ms - uptime_ms;
     k_mutex_unlock(&offset_mutex);
-
-    printk("DS3231 time set to unix=%u, offset=%lld ms\n",
+    LOG_INF("DS3231 time set to unix=%u, offset=%lld ms",
            readback, rtc_offset_ms);
     return 0;
 }
@@ -139,7 +142,7 @@ int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev)
     uint32_t unix_secs;
     int ret = ds3231_read_unix(&unix_secs);   // direct I2C, not counter_get_value
     if (ret < 0) {
-        printk("DS3231 periodic sync failed: %d\n", ret);
+        LOG_ERR("DS3231 periodic sync failed: %d", ret);
         return ret;
     }
 
@@ -155,7 +158,7 @@ int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev)
     rtc_offset_ms = new_offset;
     k_mutex_unlock(&offset_mutex);
 
-    printk("sync: DS3231=%u s, tick_ms=%lld ms, offset=%lld ms\n",
+    LOG_INF("sync: DS3231=%u s, tick_ms=%lld ms, offset=%lld ms",
            unix_secs, tick_ms, new_offset);
     return 0;
 }

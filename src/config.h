@@ -1,6 +1,12 @@
 #ifndef USER_CONFIG_H
 #define USER_CONFIG_H
 
+#ifndef SASTRESS_LOG_LVL
+#warning SASTRESS LOG LVL not defined, setting log level to DEBUG
+#define SASTRESS_LOG_LVL LOG_LEVEL_DBG
+#endif
+
+#define LOG_LEVEL SASTRESS_LOG_LVL
 
 #define BTH_PERIOD K_MINUTES(30)
 #define PERIODIC_SAMPLE_PERIOD K_MINUTES(30)

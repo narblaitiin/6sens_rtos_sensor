@@ -15,6 +15,11 @@
 #include "app_sta_lta_tx.h"
 #include "fs_utils.h"
 
+#include <zephyr/lorawan/lorawan.h>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(main);
+
 //  ========== RTC thread ==================================================================
 // thread to have periodic synchronisation of timestamp
 K_SEM_DEFINE(init_done_sem, 0, 1);
@@ -38,9 +43,9 @@ bool bth_thread_flag = true;
 
 void bth_thread_func(void)
 {
-    printk("sensor thread started\n");
+    LOG_INF("sensor thread started");
     while (bth_thread_flag == true) {
-        printk("performing periodic sensor read\n");
+        LOG_INF("performing periodic sensor read");
         (void)app_sensors_handler();
         k_sleep(BTH_PERIOD);
     }
@@ -55,12 +60,11 @@ int main(void)
 {
 	int8_t ret;
 
-	printk("initializing RTC Devices\n");
-
+	LOG_INF("initializing RTC Devices");
 	// initialize DS3231 RTC device via I2C (Pins: SDA -> P0.09, SCL -> P0.0)
 	const struct device *ds3231_dev = app_ds3231_init();
     if (!ds3231_dev) {
-        printk("failed to initialize DS3231\n");
+        LOG_ERR("failed to initialize DS3231");
         return 0;
     }
 
@@ -73,19 +77,18 @@ int main(void)
 
 	// unblock RTC sync thread
     k_sem_give(&init_done_sem);
-
 	ret = lora_init();
 	if (ret != 0) {
-		printk("[ERROR] Could not initalize LoRa\n");
+		LOG_ERR("Could not initalize LoRa");
 		return -1; // TODO make the sensor reset on failure
 	}
 
 	ret = lora_joinnet();
 	if (ret != 0) {
-		printk("[ERROR] Could not connect to LoRa net\n");
+		LOG_ERR("Could not connect to LoRa net");
 		return -1; // TODO make the sensor reset on failure
 	}
-	printk("Geophone Measurement and Process Information\n");
+	LOG_INF("Geophone Measurement and Process Information");
 
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;

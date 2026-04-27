@@ -5,6 +5,10 @@
 #include "app_sta_lta_tx.h"
 #include "lorawan.h"
 
+#include "config.h" // for log level
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(periodic_samples);
+
 // Thread data structures
 struct k_thread periodic_thread_data;
 K_THREAD_STACK_DEFINE(periodic_thread_stack, 2048);

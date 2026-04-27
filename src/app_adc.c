@@ -11,6 +11,10 @@
 
 #include <zephyr/kernel.h>
 
+#include "config.h" // for log level
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(adc);
+
 //  ========== globals =====================================================================
 // ADC buffer to store raw ADC readings
 static uint16_t ring_buffer[ADC_BUFFER_SIZE];
@@ -74,13 +78,13 @@ int8_t app_adc_read_ch(size_t ch)
     const struct adc_dt_spec *spec = &adc_channels[ch];
 
     if (!device_is_ready(spec->dev)) {
-        printk("ADC device not ready\n");
+        LOG_ERR("ADC device not ready");
         return -ENODEV;
     }
 
     err = adc_channel_setup_dt(spec);
     if (err < 0) {
-        printk("channel setup failed. error: %d\n", err);
+        LOG_ERR("channel setup failed. error: %d", err);
         return err;
     }
 
@@ -92,13 +96,13 @@ int8_t app_adc_read_ch(size_t ch)
 
     err = adc_sequence_init_dt(spec, &sequence);
     if (err < 0) {
-        printk("sequence init failed. error: %d\n", err);
+        LOG_ERR("sequence init failed. error: %d", err);
         return err;
     }
 
     err = adc_read(spec->dev, &sequence);
     if (err < 0) {
-        printk("ADC read failed. error: %d\n", err);
+        LOG_ERR("ADC read failed. error: %d", err);
         return err;
     }
 
@@ -141,11 +145,11 @@ int16_t app_adc_get_bat()
 
     // convert raw ADC reading to voltage
     int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
-    printk("convert voltage AIN1: %d mV\n", v_adc);
+    LOG_INF("convert voltage AIN1: %d mV", v_adc);
 
     // scale back to actual battery voltage using voltage divider
     int32_t v_bat = (v_adc * DIVIDER_RATIO_NUM) / DIVIDER_RATIO_DEN;
-    printk("convert voltage BATT: %d mv\n", v_bat);
+    LOG_INF("convert voltage BATT: %d mv", v_bat);
 
     return v_bat;
 }
@@ -166,12 +170,12 @@ void app_adc_thread(void *arg1, void *arg2, void *arg3)
             k_mutex_unlock(&buffer_lock);
             k_sem_give(&data_ready_sem);
         } else {
-            printk("failed to read ADC sequence\n");
+            LOG_ERR("failed to read ADC sequence");
         }
 
         // check for a rate change signals
         if (k_sem_take(&rate_change_sem, K_NO_WAIT) == 0) {
-            printk("sampling rate updated to %d ms\n", sampling_rate_ms);
+            LOG_INF("sampling rate updated to %d ms", sampling_rate_ms);
             k_sem_reset(&rate_change_sem);  // reset semaphore count
         }
         k_sleep(K_MSEC(sampling_rate_ms));
@@ -204,7 +208,7 @@ void app_adc_sampling_stop(void)
 void app_adc_get_buffer(uint16_t *dest, size_t size, int32_t offset)
 {
     if (!dest || size == 0 || size > ADC_BUFFER_SIZE) {
-        printk("adc_get_buffer: invalid params (size=%zu)\n", size);
+        LOG_ERR("adc_get_buffer: invalid params (size=%zu)", size);
         return;
     }
 
@@ -227,5 +231,5 @@ void app_adc_set_sampling_rate(uint32_t rate_ms)
     k_sem_give(&rate_change_sem);
     // signal the thread about the rate change
     k_sem_give(&rate_change_sem);
-    printk("sampling rate set to %d ms\n", rate_ms);
+    LOG_INF("sampling rate set to %d ms", rate_ms);
 }

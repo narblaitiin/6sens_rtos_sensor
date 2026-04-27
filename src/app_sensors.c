@@ -9,6 +9,10 @@
 #include "app_sensors.h"
 #include "data_types.h"
 
+#include "config.h" // for log level
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(sensors);
+
 //  ========== app_sensors_handler =========================================================
 int8_t app_sensors_handler()
 {
@@ -17,7 +21,7 @@ int8_t app_sensors_handler()
     // get sensor device
     const struct device *dev = DEVICE_DT_GET_ONE(sensirion_sht3xd);
     if (!device_is_ready(dev)) {
-        printk("sensor device not ready\n");
+        LOG_ERR("sensor device not ready");
         return -ENODEV;
     }
 
@@ -30,6 +34,6 @@ int8_t app_sensors_handler()
 
     ret = lora_send_packet(BTH, (uint8_t *) &payload, sizeof(struct bth_payload_t));
 
-    printk("BTH data sent!\n");
+    LOG_INF("BTH data sent!");
     return 0;
 }

@@ -14,6 +14,9 @@
 #include "fs_utils.h"
 #include "config.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(stalta);
+
 //  ========== globals =====================================================================
 K_THREAD_STACK_DEFINE(sta_lta_stack, 4096);
 K_THREAD_STACK_DEFINE(lorawan_stack, 2048);
@@ -118,7 +121,7 @@ int16_t float_to_int16(float val)
 // ========== NEW: LoRaWAN send thread ====================================================
 void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 {
-    printk("LoRaWAN thread started\n");
+    LOG_INF("LoRaWAN thread started");
 
     lta_event_t event;
     int ret;
@@ -147,12 +150,7 @@ void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
         int sent = 0;
         int64_t elapsed_time = 0;
         int16_t *p = send_buffer;
-        printk("Samples :");
-        for (int i = 0; i < STA_WINDOW_SIZE; i++)
-        {
-            printk("%x ", p[i]);
-        }
-        printk("\n");
+
         while (sent < STA_WINDOW_SIZE)
         {
             size_t nb_to_send = STA_WINDOW_SIZE - sent;
@@ -171,7 +169,7 @@ void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
             }
             else
             {
-                printk("Could not send signal with anomaly, retrying in 30s");
+                LOG_WRN("Could not send signal with anomaly, retrying in 30s");
                 k_msleep(30000);
             }
         }
@@ -181,7 +179,7 @@ void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
 //  ========== app_lta_thread ==============================================================
 void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 {
-    printk("STA/LTA thread started\n");
+    LOG_INF("STA/LTA thread started");
     // threshold above which we consider an event detected
     const float DETECTION_RATIO = 3.f;
 
@@ -223,10 +221,10 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 
             if (k_msgq_put(&lorawan_msgq, &l_evt, K_NO_WAIT) != 0)
             {
-                printk("warning: LoRaWAN queue full, event dropped\n");
+                LOG_ERR("warning: LoRaWAN queue full, event dropped");
             }
 
-            printk("event detected: max amplitude: %u, ratio: %.2f\n", max_amp, (double)ratio);
+            LOG_INF("event detected: max amplitude: %u, ratio: %.2f", max_amp, (double)ratio);
         }
     }
 }

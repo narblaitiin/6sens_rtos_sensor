@@ -7,6 +7,10 @@
 #include "fs_utils.h"
 #include <zephyr/sys/base64.h>
 
+#include "config.h" // for log level
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(filesystem);
+
 //  ========== globals =====================================================================
 #define TEST_PARTITION_OFFSET	FIXED_PARTITION_OFFSET(lfs_storage)
 
@@ -55,16 +59,16 @@ void dump_fs(bool clean)
     switch (rc)
     {
     case -EINVAL:
-        printk("Bad directory given...\n");
+        LOG_ERR("Bad directory given...");
         break;
     case 0:
         break;
     default:
-        printk("Error : error code=%d\n", rc);
+        LOG_ERR("Error : error code=%d", rc);
         break;
     }
 
-    printk("Reading content of lfs dir\n");
+    LOG_INF("Reading content of lfs dir");
     struct fs_dirent dir_entry;
     while (true)
     {
@@ -83,7 +87,7 @@ void dump_fs(bool clean)
             rc = fs_unlink(file_path);
             if (rc < 0)
             {
-                printk("Could not delete %s. error: %d\n", file_path, rc);
+                LOG_ERR("Could not delete %s. error: %d", file_path, rc);
             }
         }
     }
@@ -96,13 +100,12 @@ void dump_file(char * file_path)
     int rc;
     unsigned char buffer[100];
     unsigned char base64_encoded[200];
-    // printf("Opening file %s\n", file_path);
     struct fs_file_t file;
     fs_file_t_init(&file);
     rc = fs_open(&file, file_path, FS_O_READ);
     if (rc < 0)
     {
-        printk("file open failed. error: %d\n", rc);
+        LOG_ERR("file open failed. error: %d", rc);
         return;
     }
     
@@ -115,7 +118,7 @@ void dump_file(char * file_path)
         rc = base64_encode(base64_encoded, 200, &encoded, buffer, written);
         base64_encoded[encoded] = 0;
         if(rc != 0) {
-            printf("Error encoding to base 64\n");
+            LOG_ERR("Error encoding to base 64");
             return;
         }
         printk("%s", base64_encoded);
@@ -129,7 +132,7 @@ void dump_file(char * file_path)
     rc = fs_close(&file);
     if (rc < 0)
     {
-        printk("file closed failed. error: %d\n", rc);
+        LOG_ERR("file closed failed. error: %d", rc);
     }
     return;
 }
