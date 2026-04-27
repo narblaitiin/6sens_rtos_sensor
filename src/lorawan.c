@@ -116,38 +116,18 @@ int lora_send_timestamp(PACKET_TYPE type, uint64_t timestamp, uint8_t * payload,
     }
 
     LOG_INF("Sending Payload of type : %d", type);
-
-    #if LOG_LEVEL == 0
-    #warning OFF
-    #endif
-    #if LOG_LEVEL == 1 
-    #warning ERROR
-    #endif   
-    #if LOG_LEVEL == 2 
-    #warning WRN
-    #endif
-    #if LOG_LEVEL == 3 
-    #warning INF
-    #endif
-    #if LOG_LEVEL == 4 
-    #warning DEBUG
-    #endif
-
-    #if LOG_LEVEL >= LOG_LEVEL_DBG
-    LOG_DBG("SENDING MESSAGE");
-    printk("Size of packet %d", header_size + payload_size);
-    printk("Packet Timestamp : %llu", packet.timestamp);
-    printk("Timestamp hexa: %llx", packet.timestamp);
-    printk("Size of packet-type : %d", sizeof(PACKET_TYPE));
-    printk("Entire payload : ");
+    LOG_DBG("Size of packet %d", header_size + payload_size);
+    LOG_DBG("Packet Timestamp : %llu", packet.timestamp);
+    LOG_DBG("Timestamp hexa: %llx", packet.timestamp);
+    LOG_DBG("Size of packet-type : %d", sizeof(PACKET_TYPE));
+    LOG_DBG("Entire payload : ");
 
     int8_t * p = ((int8_t *) (&packet));
     for(int i = 0; i < payload_size + header_size; i++) {
-        printk("%X ", (int8_t) *p);
+        LOG_DBG("%X ", (int8_t) *p);
         p++;
     }
-    #warning "DEVBUG MODEE"
-    #endif
+    
 
     int ret = -1;
     while (ret != 0) {

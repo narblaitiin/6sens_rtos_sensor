@@ -15,6 +15,7 @@
 #include "app_sta_lta_tx.h"
 #include "fs_utils.h"
 
+#include <zephyr/sys/reboot.h>
 #include <zephyr/lorawan/lorawan.h>
 
 #include <zephyr/logging/log.h>
@@ -54,6 +55,43 @@ K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func,
                 NULL, NULL, NULL, PRIORITY_TTN, 0, K_TICKS_FOREVER);
 
 
+// Synchro clock 
+void sync_clock(const struct device * ds3231_dev)
+{
+    int ret;
+    uint32_t gps_time;
+    time_t unix_time;
+    struct tm timeinfo;
+    char buf[32];
+
+    ret = lorawan_request_device_time(1);
+
+    if (ret != 0)
+    {
+        LOG_ERR("lorawan_request_device_time returned %d\n", ret);
+        return;
+    }
+
+    /*
+    * Once time synchronisation has occurred, lorawan_clock_sync_get() can
+    * be called to populate an uint32_t variable with GPS Time. This is the
+    * number of seconds since Jan 6th 1980 ignoring leap seconds.
+    */
+    ret = lorawan_device_time_get(&gps_time);
+    if (ret != 0)
+    {
+        LOG_ERR("lorawan_device_time_get returned %d\n", ret);
+    }
+    else
+    {
+        gps_time += 315964800;
+        unix_time = gps_time;
+        app_ds3231_set_time(ds3231_dev, gps_time);
+        localtime_r(&unix_time, &timeinfo);
+        strftime(buf, sizeof(buf), "%A %B %d %Y %I:%M:%S %p %Z", &timeinfo);
+        LOG_INF("Sync with GPS Time = %lli, UTC Time: %s", unix_time, buf);
+    }
+}
 
 //  ========== main ========================================================================
 int main(void)
@@ -65,7 +103,7 @@ int main(void)
 	const struct device *ds3231_dev = app_ds3231_init();
     if (!ds3231_dev) {
         LOG_ERR("failed to initialize DS3231");
-        return 0;
+        sys_reboot(SYS_REBOOT_COLD); // Reset on failure
     }
 
 	// set time (also computes initial offset)
@@ -80,16 +118,17 @@ int main(void)
 	ret = lora_init();
 	if (ret != 0) {
 		LOG_ERR("Could not initalize LoRa");
-		return -1; // TODO make the sensor reset on failure
+		sys_reboot(SYS_REBOOT_COLD); // Reset on failure
 	}
 
 	ret = lora_joinnet();
 	if (ret != 0) {
 		LOG_ERR("Could not connect to LoRa net");
-		return -1; // TODO make the sensor reset on failure
+		sys_reboot(SYS_REBOOT_COLD); // Reset on failure
 	}
 	LOG_INF("Geophone Measurement and Process Information");
 
+    sync_clock(ds3231_dev);
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
     if(BTH_ENABLE != 0) {
