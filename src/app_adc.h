@@ -31,7 +31,8 @@
 #define DIVIDER_RATIO_DEN           3600    // R5
 
 // duration between 2 samples
-#define SAMPLING_RATE_MS            10
+//#define SAMPLING_RATE_MS            10        // critical value for POC
+#define SAMPLING_RATE_MS            7       // max value for ADC -> 167 Hz
 
 // priority of the different threads involved
 #define PRIORITY_ADC                2

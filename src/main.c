@@ -65,7 +65,6 @@ void sync_clock(const struct device * ds3231_dev)
     char buf[32];
 
     ret = lorawan_request_device_time(1);
-
     if (ret != 0)
     {
         LOG_ERR("lorawan_request_device_time returned %d\n", ret);
