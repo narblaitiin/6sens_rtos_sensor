@@ -1,28 +1,36 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(6sens_rtos_sensor)
+# =========== Retrieve build parameters =====================
+# Set default log level (OFF, ERR, WRN, INF, DBG)
+set(SASTRESS_LOG_LVL LOG_LEVEL_INF)
 
-FILE(GLOB app_sources src/*.c)
-target_sources(app PRIVATE ${app_sources})
-
-
+message("========= SASTRESS PARAMETERS ==========")
 # NODE ID handling
 set(env_node_id $ENV{NODE_ID})
 if(NOT DEFINED ENV{NODE_ID})
     message(FATAL_ERROR "La variable d'environnement NODE_ID n'est pas définie ! Faites 'export NODE_ID=X'")
 endif()
-message("Building for NODE ${env_node_id}")
-zephyr_compile_definitions(NODE_ID=${env_node_id})
+
+message("NODE ID is ${env_node_id}")
+
 
 # Deploy Mode :
 # - Change logging system from Serial to Filesystem
 # - Set default logging code to LOG_LEVEL_INF
 if(DEFINED ENV{DEPLOY})
-    message(WARNING "Building DEPLOY configuration !")
+    message("Building DEPLOY configuration !")
     set(EXTRA_CONF_FILE deploy.conf)
-    zephyr_compile_definitions(SASTRESS_LOG_LVL=LOG_LEVEL_INF)
-else()
-    # Set log level (OFF, ERR, WRN, INF, DBG)
-    zephyr_compile_definitions(SASTRESS_LOG_LVL=LOG_LEVEL_DBG)
+    set(SASTRESS_LOG_LVL LOG_LEVEL_INF)
 endif()
+message("========================================")
+
+
+# =============== Actual CMakeList ====================
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(6sens_rtos_sensor)
+zephyr_compile_definitions("SASTRESS_LOG_LVL=${SASTRESS_LOG_LVL}")
+zephyr_compile_definitions(NODE_ID=${env_node_id})
+FILE(GLOB app_sources src/*.c)
+target_sources(app PRIVATE ${app_sources})
+
+

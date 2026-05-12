@@ -86,7 +86,7 @@ void dump_fs(char * mnt_name, bool clean)
         break; // TODO ADD return on error
     }
 
-    LOG_INF("Reading content of %s dir", mnt_name);
+    printk("Reading content of %s dir\n", mnt_name);
     
     struct fs_dirent dir_entry;
     while (true)
