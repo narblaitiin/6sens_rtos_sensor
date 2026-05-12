@@ -28,7 +28,6 @@ static struct fs_mount_t log_storage_mnt = {
     .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
 };
 
-static const struct log_backend *backend;
 //  ========== mount_lfs() ============================================================
 int mount_lfs() {
     LOG_INF("Mounting data partition.");
@@ -51,12 +50,12 @@ int mount_lfs() {
 //  ========== is_lfs_mounted() ============================================================
 bool is_lfs_mounted(char * mnt_name) {
     int mount_index = 0;
-    char name[30];
+    const char * p;
     int rc = 0;
     while (rc == 0)
     {
-        rc = fs_readmount(&mount_index, (const char * *) &name);
-        if (strcmp(name, mnt_name) == 0)
+        rc = fs_readmount(&mount_index, &p);
+        if (strcmp(p, mnt_name) == 0)
         {
             return true;
         }
