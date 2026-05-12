@@ -6,9 +6,7 @@ project(6sens_rtos_sensor)
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE ${app_sources})
 
-# Set log level (OFF, ERR, WRN, INF, DBG)
-zephyr_compile_definitions(SASTRESS_LOG_LVL=LOG_LEVEL_INF)
- 
+
 # NODE ID handling
 set(env_node_id $ENV{NODE_ID})
 if(NOT DEFINED ENV{NODE_ID})
@@ -17,3 +15,14 @@ endif()
 message("Building for NODE ${env_node_id}")
 zephyr_compile_definitions(NODE_ID=${env_node_id})
 
+# Deploy Mode :
+# - Change logging system from Serial to Filesystem
+# - Set default logging code to LOG_LEVEL_INF
+if(DEFINED ENV{DEPLOY})
+    message(WARNING "Building DEPLOY configuration !")
+    set(EXTRA_CONF_FILE deploy.conf)
+    zephyr_compile_definitions(SASTRESS_LOG_LVL=LOG_LEVEL_INF)
+else()
+    # Set log level (OFF, ERR, WRN, INF, DBG)
+    zephyr_compile_definitions(SASTRESS_LOG_LVL=LOG_LEVEL_DBG)
+endif()

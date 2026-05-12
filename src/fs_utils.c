@@ -9,35 +9,54 @@
 
 #include "config.h" // for log level
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_backend.h>
 LOG_MODULE_REGISTER(filesystem);
 
-//  ========== globals =====================================================================
-#define TEST_PARTITION_OFFSET	FIXED_PARTITION_OFFSET(lfs_storage)
-
-//  ========== globals =====================================================================
-FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(lfs_storage);
-
-static struct fs_mount_t lfs_storage_mnt = {
+FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
+FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage2);
+static struct fs_mount_t data_storage_mnt = {
     .type = FS_LITTLEFS,
-    .mnt_point = "/lfs",
-    .fs_data = &lfs_storage,
-    .storage_dev = (void *)FIXED_PARTITION_ID(lfs_storage),
+    .mnt_point = "/data",
+    .fs_data = &storage,
+    .storage_dev = (void *)FIXED_PARTITION_ID(data_storage),
 };
 
+static struct fs_mount_t log_storage_mnt = {
+    .type = FS_LITTLEFS,
+    .mnt_point = "/log",
+    .fs_data = &storage2,
+    .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
+};
+
+static const struct log_backend *backend;
 //  ========== mount_lfs() ============================================================
 int mount_lfs() {
-    return fs_mount(&lfs_storage_mnt);
+    LOG_INF("Mounting data partition.");
+    int err = fs_mount(&data_storage_mnt);
+    if (err) {
+        LOG_ERR("Could not mount data partition. Error %d", err);
+        return err;
+    }
+
+    LOG_INF("Mounting log partition.");
+    err = fs_mount(&log_storage_mnt);
+    if (err) {
+        LOG_ERR("Could not mount log partition. Error %d", err);
+        return err;
+    }
+
+    return err;
 }
 
 //  ========== is_lfs_mounted() ============================================================
-bool is_lfs_mounted() {
+bool is_lfs_mounted(char * mnt_name) {
     int mount_index = 0;
     char name[30];
     int rc = 0;
     while (rc == 0)
     {
         rc = fs_readmount(&mount_index, (const char * *) &name);
-        if (strcmp(name, "/lfs") == 0)
+        if (strcmp(name, mnt_name) == 0)
         {
             return true;
         }
@@ -46,16 +65,16 @@ bool is_lfs_mounted() {
 }
 
 //  ========== dump_fs() ============================================================
-void dump_fs(bool clean)
+void dump_fs(char * mnt_name, bool clean)
 {
-    if(!is_lfs_mounted()) {
-        mount_lfs();
+    if(!is_lfs_mounted(mnt_name)) {
+        LOG_ERR("No mount to folder %s, cannot dump FS", mnt_name);
     }
     // Get the lfs folder
     struct fs_dir_t root_dir;
     fs_dir_t_init(&root_dir);
     int rc = 0;
-    rc = fs_opendir(&root_dir, "/lfs");
+    rc = fs_opendir(&root_dir, mnt_name);
     switch (rc)
     {
     case -EINVAL:
@@ -65,10 +84,11 @@ void dump_fs(bool clean)
         break;
     default:
         LOG_ERR("Error : error code=%d", rc);
-        break;
+        break; // TODO ADD return on error
     }
 
-    LOG_INF("Reading content of lfs dir");
+    LOG_INF("Reading content of %s dir", mnt_name);
+    
     struct fs_dirent dir_entry;
     while (true)
     {
@@ -80,7 +100,7 @@ void dump_fs(bool clean)
         printk("FILE:%s\n", dir_entry.name);
         
         char file_path[261];
-        snprintf(file_path, sizeof(file_path), "%s%s", "/lfs/", dir_entry.name);
+        snprintf(file_path, sizeof(file_path), "%s/%s", mnt_name, dir_entry.name);
 
         dump_file(file_path);
         if(clean) {
