@@ -25,7 +25,7 @@ static struct fs_mount_t log_storage_mnt = {
     .type = FS_LITTLEFS,
     .mnt_point = "/log",
     .fs_data = &storage2,
-    .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
+    .storage_dev = (void *)FIXED_PARTITION_ID(log_storage),
 };
 
 //  ========== mount_lfs() ============================================================
