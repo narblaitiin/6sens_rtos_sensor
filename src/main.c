@@ -105,6 +105,12 @@ int main(void)
         sys_reboot(SYS_REBOOT_COLD); // Reset on failure
     }
 
+    ret = mount_lfs();
+    if(ret != 0)  {
+        LOG_ERR("Could not mount lfs, resetting...");
+        sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+    }
+    
 	// set time (also computes initial offset)
     app_ds3231_set_time(ds3231_dev, 1741773600);
 

@@ -35,10 +35,10 @@ You will need to register new devices in your application (with OTAA activation 
         AppSKey                         random value for 16-byte address
 
 ## Building and Running
-The following commands clean build folder, build and flash the sample:
+The following commands clean build folder, build and flash the sample for debug :
 
 **Command to use**
-````bash
+```bash
 # First, export your NODE_ID 
 export NODE_ID=X
 
@@ -50,4 +50,23 @@ west build -p always -b mdbt50q_lora_dev applications/6sens_rtos_sensor
 
 # Flash it
 west flash --runner jlink
+```
+
+For deployment build :
+
+```bash
+# First, export your NODE_ID 
+export NODE_ID=X
+# Set to deploy mode
+export DEPLOY=TRUE
+# Clean the existing build
+west build -t pristine
+
+# Build the application
+west build -p always -b mdbt50q_lora_dev applications/6sens_rtos_sensor
+
+# Flash it
+west flash --runner jlink
+
+
 ```

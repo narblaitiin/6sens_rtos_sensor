@@ -27,9 +27,11 @@
 int mount_lfs();
 
 /**
- * @brief check if a storage is mounted at /lfs
+ * @brief check if a storage is mounted at /<mnt_name>
  * 
- * @retval true if a storage is mounted at /lfs
+ * @param mnt_name the name of the partition to check (e.g "/log" or "/data")
+ * 
+ * @retval true if a storage is mounted at /<mnt_name>
  * @retval false else
  */
 bool is_lfs_mounted();
@@ -47,9 +49,10 @@ bool is_lfs_mounted();
  * 
  * Output that do not start with the FILE:, D:, or TOTAL_ENCODED:, is log information
  * 
+ * @param mnt_name the name of the partition to dump (e.g "/log" or "/data")
  * @param clean set to true to remove files after dumping, false else
  */
-void dump_fs(bool clean);
+void dump_fs(char * mnt_name, bool clean);
 
 /**
  * @brief Dump the content of a given file
