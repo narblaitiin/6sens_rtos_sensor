@@ -41,6 +41,7 @@
 };
 
 /* enable the recording in the EEPROM */
+/* 
 &mx25r64 {
 	partitions {
 		compatible		= "fixed-partitions";
@@ -51,5 +52,21 @@
 			label	= "data_storage";
 			reg		= <0x00000000 0x00800000>;
 		};
+	};
+};
+*/
+
+&flash0 {
+	partitions {
+		/* 32KB (8x4kB pages) of storage at the end of the 1MB flash */
+		data_storage: partition@40000 {
+			label		= "data_storage";																																																																				
+			reg 		= <0x0040000 0x00080000>;
+		};
+		log_storage: partition@C0000 {
+			label		= "log_storage";																																																																				
+			reg 		= <0x00C0000 0x00040000>;
+		};
+	
 	};
 };

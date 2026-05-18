@@ -12,8 +12,14 @@
 #include <zephyr/logging/log_backend.h>
 LOG_MODULE_REGISTER(filesystem);
 
-FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
+#define TEST_PARTITION_OFFSET_DATA FIXED_PARTITION_OFFSET(data_storage)
+#define TEST_PARTITION_OFFSET_LOG FIXED_PARTITION_OFFSET(log_storage)
+
+
 FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage2);
+FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
+
+
 static struct fs_mount_t data_storage_mnt = {
     .type = FS_LITTLEFS,
     .mnt_point = "/data",
@@ -64,13 +70,64 @@ bool is_lfs_mounted(char * mnt_name) {
 }
 
 //  ========== dump_fs() ============================================================
-void dump_fs(char * mnt_name, bool clean)
+void rm_fs_content(char * mnt_name)
 {
+    int rc = 0;
+    char file_path[260];
+    LOG_INF("Cleaning partition %s\n", mnt_name);
+    if(!is_lfs_mounted(mnt_name)) {
+        LOG_ERR("No mount to folder %s, cannot rm FS", mnt_name);
+    }
+
+     // Get the partition folder
+    struct fs_dir_t root_dir;
+    fs_dir_t_init(&root_dir);
+    rc = fs_opendir(&root_dir, mnt_name);
+    
+    switch (rc)
+    {
+    case -EINVAL:
+        LOG_ERR("Bad directory given...");
+        break;
+    case 0:
+        break;
+    default:
+        LOG_ERR("Error : error code=%d", rc);
+        break; // TODO ADD return on error
+    }
+
+    printk("Reading content of %s dir\n", mnt_name);
+    
+    struct fs_dirent dir_entry;
+    while (true)
+    {
+        rc = fs_readdir(&root_dir, &dir_entry);
+        if (dir_entry.name[0] == 0 || rc < 0)
+        {
+            break;
+        }
+        
+        
+        snprintf(file_path, sizeof(file_path), "%s/%s", mnt_name, dir_entry.name);
+        printk("Removing:%s\n", file_path);
+        rc = fs_unlink(file_path);
+        if (rc < 0)
+        {
+            LOG_ERR("Could not delete %s. error: %d", file_path, rc);
+        }
+    
+    }
+}
+//  ========== dump_fs() ============================================================
+void dump_fs(char * mnt_name, bool clean)
+{   
     if(!is_lfs_mounted(mnt_name)) {
         LOG_ERR("No mount to folder %s, cannot dump FS", mnt_name);
+        return;
     }
     // Get the lfs folder
     struct fs_dir_t root_dir;
+    
     fs_dir_t_init(&root_dir);
     int rc = 0;
     rc = fs_opendir(&root_dir, mnt_name);
@@ -104,11 +161,12 @@ void dump_fs(char * mnt_name, bool clean)
         dump_file(file_path);
         if(clean) {
             rc = fs_unlink(file_path);
-            if (rc < 0)
+            if (rc != 0)
             {
                 LOG_ERR("Could not delete %s. error: %d", file_path, rc);
             }
         }
+        continue;
     }
     printk("DUMP_END\n");
 }

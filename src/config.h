@@ -19,7 +19,12 @@
 // PERIODIC_SAMPLE_ENABLE : if set to 0, the sensor won't send anomaly detected messages
 #define ANOMALY_SEND 1
 // ANOMALY_SEND_SAMPLES : if set to 0, the sensor won't send the samples linked to a detected anomaly
-#define ANOMALY_SEND_SAMPLES 1
+#define ANOMALY_SEND_SAMPLES 0
 
+// The length of the signal to store in ms
+#define ANOMALY_STORED_MS 5000
+
+// The size of an anomaly in memory (TODO Remove hardcoded sampling period of 10ms)
+#define STORED_ANOMALY_SIZE (ANOMALY_STORED_MS/10) 
 
 #endif

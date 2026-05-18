@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20.0)
-
+add_compile_options(-Wall)
 # =========== Retrieve build parameters =====================
 # Set default log level (OFF, ERR, WRN, INF, DBG)
 set(SASTRESS_LOG_LVL LOG_LEVEL_INF)
@@ -22,6 +22,7 @@ if(DEFINED ENV{DEPLOY})
     set(EXTRA_CONF_FILE deploy.conf)
     set(SASTRESS_LOG_LVL LOG_LEVEL_INF)
 endif()
+message("Log level is ${SASTRESS_LOG_LVL}")
 message("========================================")
 
 
@@ -32,5 +33,6 @@ zephyr_compile_definitions("SASTRESS_LOG_LVL=${SASTRESS_LOG_LVL}")
 zephyr_compile_definitions(NODE_ID=${env_node_id})
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE ${app_sources})
+
 
 

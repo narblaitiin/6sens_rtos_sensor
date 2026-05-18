@@ -26,12 +26,18 @@
 // Minimal time between two anomalies
 #define MINIMAL_DELAY_ANOMALY_MS 10000
 
-// ADC buffer size in bytes
+// ADC buffer size in bytes TODO modifier en MAX((LTA_WINDOW_SIZE * 2)  ou STORED_ANOMALY_SIZE)
 #define ADC_BUFFER_SIZE             (LTA_WINDOW_SIZE * 2) 
 
 // derived buffer sizes
-#define STA_WINDOW_SIZE (STA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
+#define STA_WINDOW_SIZE (STA_WINDOW_DURATION_MS / SAMPLING_RATE_MS) 
 #define LTA_WINDOW_SIZE (LTA_WINDOW_DURATION_MS / SAMPLING_RATE_MS)
+
+// How much time we should wait after a sta/lta detection to store data before and after the signal ?
+#define TIME_BTW_DETECT_AND_STORE_MS (ANOMALY_STORED_MS/2)
+
+// How many time should we retry sending an anomaly signal before stopping ?
+#define NB_SEND_RETRIES 5
 
 //  ========== prototypes ==================================================================
 void app_lta_thread(void *arg1, void *arg2, void *arg3);

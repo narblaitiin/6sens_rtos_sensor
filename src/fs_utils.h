@@ -55,6 +55,13 @@ bool is_lfs_mounted();
 void dump_fs(char * mnt_name, bool clean);
 
 /**
+ * @brief Remove the content of a partition/folder
+ * 
+ * @param mnt_name the name of the partition to clean (e.g "/log" or "/data")
+ */
+void rm_fs_content(char * mnt_name);
+
+/**
  * @brief Dump the content of a given file
  *
  * @param file_path Path to the file to dump (absolute path on the mounted filesystem, e.g. "/lfs/geophone0.dat").

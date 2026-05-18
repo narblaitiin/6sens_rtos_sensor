@@ -110,14 +110,19 @@ int main(void)
         LOG_ERR("Could not mount lfs, resetting...");
         sys_reboot(SYS_REBOOT_COLD); // Reset on failure
     }
+    printk("Size of stored_anomaly_t : %d\n", sizeof(stored_anomaly_t));
     
+    //dump_fs("/log", false);
+    // dump_fs("/data", false);
+    
+    // rm_fs_content("/data");
 	// set time (also computes initial offset)
     app_ds3231_set_time(ds3231_dev, 1741773600);
 
 	// start nRF internal RTC counter for sub-second precision
     const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
     counter_start(nrf_rtc);
-
+    LOG_INF("Time set...");
 	// unblock RTC sync thread
     k_sem_give(&init_done_sem);
 	ret = lora_init();
@@ -125,6 +130,7 @@ int main(void)
 		LOG_ERR("Could not initalize LoRa");
 		sys_reboot(SYS_REBOOT_COLD); // Reset on failure
 	}
+    LOG_INF("Lora INIT OK...");
 
 	ret = lora_joinnet();
 	if (ret != 0) {

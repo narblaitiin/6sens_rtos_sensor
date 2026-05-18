@@ -20,11 +20,11 @@ LOG_MODULE_REGISTER(stalta);
 //  ========== globals =====================================================================
 K_THREAD_STACK_DEFINE(sta_lta_stack, 4096);
 K_THREAD_STACK_DEFINE(lorawan_stack, 2048);
-
+K_THREAD_STACK_DEFINE(storage_stack, 8000);
 // declare thread data structure
 struct k_thread sta_lta_thread_data;
 struct k_thread lorawan_thread_data;
-struct k_thread lorawan_thread_data;
+struct k_thread storage_thread_data;
 
 // buffer to hold the Short-Term Average (STA) and Long-Term Average (LTA) samples
 static uint16_t sta_buffer[STA_WINDOW_SIZE];
@@ -33,28 +33,14 @@ static uint16_t lta_buffer[LTA_WINDOW_SIZE];
 // buffer to hold a signal sample of 1 second, to send via LoRaWAN - TODO : Make it so we can handle multiple 1s samples at a time
 static uint16_t send_buffer[STA_WINDOW_SIZE];
 
+
 // Timer to check when the last LTA/STA ratio exceed the threshold
 uint64_t last_anomaly_time;
 
-// message structure to pass detection results to LoRaWAN sender
-typedef struct
-{
-    uint64_t timestamp_ms;
-    int16_t max_ampl;
-    int16_t min_ampl;
-    int16_t mean_ampl;
-    float ratio;
-} lta_event_t;
-
-// message structure for sample storage
-typedef struct
-{
-    int32_t head_snapshot; // value of ring_head when the event was enqueued
-} storage_event_t;
 
 // message queues (4 slots each — tune as needed)
-K_MSGQ_DEFINE(lorawan_msgq, sizeof(lta_event_t), 4, 4);
-K_MSGQ_DEFINE(storage_msgq, sizeof(storage_event_t), 4, 4);
+K_MSGQ_DEFINE(lorawan_msgq, sizeof(lta_event_t), 1, 4);
+K_MSGQ_DEFINE(anomalies_to_store_msgq, sizeof(lta_event_t), 1, 4);
 
 //  ========== calculate_squared_avg ===============================================================
 // function to calculate the average of a given buffer
@@ -148,10 +134,11 @@ void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
         }
 
         int sent = 0;
+        int nb_retries = 0;
         int64_t elapsed_time = 0;
         int16_t *p = send_buffer;
 
-        while (sent < STA_WINDOW_SIZE)
+        while (sent < STA_WINDOW_SIZE && nb_retries < NB_SEND_RETRIES)
         {
             size_t nb_to_send = STA_WINDOW_SIZE - sent;
             // Ceil to MAX_SAMPLES
@@ -159,6 +146,7 @@ void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
             {
                 nb_to_send = MAX_SAMPLES;
             }
+            
             ret = lora_send_timestamp(SAMPLES, event.timestamp_ms + elapsed_time, (uint8_t *)p, nb_to_send * 2);
             if (ret == 0)
             {
@@ -176,12 +164,66 @@ void app_lorawan_thread(void *arg1, void *arg2, void *arg3)
     }
 }
 
+void app_anomaly_store(void *arg1, void *arg2, void *arg3)
+{
+    LOG_INF("Anomaly storage thread started");
+
+    lta_event_t event;
+    stored_anomaly_t anomaly;
+    int ret;
+    struct fs_file_t file;
+    fs_file_t_init(&file);
+
+    char file_path[400];
+
+    while(true) {
+        // block until a detection event is enqueued
+        k_msgq_get(&anomalies_to_store_msgq, &event, K_FOREVER);
+
+        k_sleep(K_MSEC(TIME_BTW_DETECT_AND_STORE_MS));
+
+        uint64_t timestamp = app_get_timestamp();
+        // Le moment où on a capturé l'événement, on prends 10s avant, et 10s après
+        app_adc_get_buffer(anomaly.samples, STORED_ANOMALY_SIZE, -STORED_ANOMALY_SIZE);
+        anomaly.event = event;
+        anomaly.event.timestamp_ms = timestamp - ANOMALY_STORED_MS;
+        
+        snprintf(file_path, sizeof(file_path), "/data/signal_%llu.dat", anomaly.event.timestamp_ms);
+        
+        ret = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE);
+        if (ret < 0) {
+            LOG_ERR("file open failed. error: %d", ret);
+            continue;
+        }
+        
+        
+        // void * data = (void *) &anomaly;
+        // for(int i = 0; i<)
+        ret = fs_write(&file, &anomaly, sizeof(stored_anomaly_t));
+        if (ret < 0) {
+            LOG_ERR("file write failed. error: %d", ret);
+            continue;
+        }
+        
+        ret = fs_sync(&file);
+        if (ret < 0) {
+            LOG_ERR("file sync failed. error: %d", ret);
+            continue;
+        }
+        fs_close(&file);
+    }
+}
+
 //  ========== app_lta_thread ==============================================================
 void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 {
     LOG_INF("STA/LTA thread started");
-    // threshold above which we consider an event detected
-    const float DETECTION_RATIO = 3.f;
+    // threshold above which we consider an event detected and :
+    // - Must be sent
+    const float SEND_RATIO = 3.f;
+    // - Must be stored
+    const float STORE_RATIO = 1.5f;
+    // - TODO : Must be accounted for ?
 
     last_anomaly_time = k_uptime_get() + 100000;
     while (1)
@@ -201,7 +243,7 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
             continue;
         }
         // only send LoRaWAN when a seismic event is detected
-        if (ratio >= DETECTION_RATIO)
+        if (ratio >= STORE_RATIO)
         {
             last_anomaly_time = k_uptime_get();
             uint64_t timestamp = app_get_timestamp();
@@ -216,15 +258,26 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
                 .mean_ampl = mean,
                 .ratio = ratio,
             };
+            
+            LOG_INF("event detected: max amplitude: %u, ratio: %.2f", max_amp, (double)ratio);
 
+            if (k_msgq_put(&anomalies_to_store_msgq, &l_evt, K_NO_WAIT) != 0)
+            {
+                LOG_ERR("Anomaly storage queue full, event dropped");
+            }
+
+            // If the event has been detected but is not worth sending, continue to next detection.
+            if (ratio < SEND_RATIO) {
+                continue;
+            }
+            // TODO SUPPORT PARALLEL SYNCS
             memcpy(send_buffer, sta_buffer, STA_WINDOW_SIZE * 2);
 
             if (k_msgq_put(&lorawan_msgq, &l_evt, K_NO_WAIT) != 0)
             {
-                LOG_ERR("warning: LoRaWAN queue full, event dropped");
+                LOG_ERR("LoRaWAN queue full, event dropped");
             }
 
-            LOG_INF("event detected: max amplitude: %u, ratio: %.2f", max_amp, (double)ratio);
         }
     }
 }
@@ -242,5 +295,11 @@ void app_sta_lta_start_tx(void)
     k_thread_create(&lorawan_thread_data, lorawan_stack,
                     K_THREAD_STACK_SIZEOF(lorawan_stack),
                     app_lorawan_thread, NULL, NULL, NULL,
+                    PRIORITY_TTN + 1, 0, K_NO_WAIT);
+
+    // Storage thread (lower priority — network I/O can wait)
+    k_thread_create(&storage_thread_data, storage_stack,
+                    K_THREAD_STACK_SIZEOF(storage_stack),
+                    app_anomaly_store, NULL, NULL, NULL,
                     PRIORITY_TTN + 1, 0, K_NO_WAIT);
 }
