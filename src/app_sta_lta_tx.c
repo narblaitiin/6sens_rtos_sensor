@@ -37,6 +37,8 @@ static uint16_t send_buffer[STA_WINDOW_SIZE];
 // Timer to check when the last LTA/STA ratio exceed the threshold
 uint64_t last_anomaly_time;
 
+// Boolean to check if there is enough space for recording new signals
+bool storing = true;
 
 // message queues (4 slots each — tune as needed)
 K_MSGQ_DEFINE(lorawan_msgq, sizeof(lta_event_t), 1, 4);
@@ -180,6 +182,9 @@ void app_anomaly_store(void *arg1, void *arg2, void *arg3)
         // block until a detection event is enqueued
         k_msgq_get(&anomalies_to_store_msgq, &event, K_FOREVER);
 
+        if(storing == false) {
+            continue;
+        }
         k_sleep(K_MSEC(TIME_BTW_DETECT_AND_STORE_MS));
 
         uint64_t timestamp = app_get_timestamp();
@@ -193,6 +198,7 @@ void app_anomaly_store(void *arg1, void *arg2, void *arg3)
         ret = fs_open(&file, file_path, FS_O_CREATE | FS_O_WRITE);
         if (ret < 0) {
             LOG_ERR("file open failed. error: %d", ret);
+            storing = false;
             continue;
         }
         
@@ -222,8 +228,8 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
     // - Must be sent
     const float SEND_RATIO = 3.f;
     // - Must be stored
-    const float STORE_RATIO = 1.5f;
-    // - TODO : Must be accounted for ?
+    const float STORE_RATIO = 2.5f;
+    char time_str[100];
 
     last_anomaly_time = k_uptime_get() + 100000;
     while (1)
@@ -259,12 +265,15 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
                 .ratio = ratio,
             };
             
-            LOG_INF("event detected: max amplitude: %u, ratio: %.2f", max_amp, (double)ratio);
+
+            timestamp_to_string(time_str, timestamp);
+            LOG_INF("event detected at %s max amplitude: %u, ratio: %.2f", time_str, max_amp, (double)ratio);
 
             if (k_msgq_put(&anomalies_to_store_msgq, &l_evt, K_NO_WAIT) != 0)
             {
                 LOG_ERR("Anomaly storage queue full, event dropped");
             }
+            
 
             // If the event has been detected but is not worth sending, continue to next detection.
             if (ratio < SEND_RATIO) {

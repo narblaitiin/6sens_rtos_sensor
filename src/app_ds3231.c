@@ -9,6 +9,7 @@
 #include "app_ds3231.h"
 #include <zephyr/sys/timeutil.h>
 
+#include <stdio.h>
 #include "config.h" // for log level
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ds3231);
@@ -60,12 +61,21 @@ static int ds3231_read_unix(uint32_t *unix_secs)
     // convert to unix seconds
     *unix_secs = (uint32_t)timeutil_timegm64(&utc);
 
-    LOG_INF("DS3231 direct read: %02d:%02d:%02d %02d/%02d/%04d -> unix=%u",
+    LOG_DBG("DS3231 direct read: %02d:%02d:%02d %02d/%02d/%04d -> unix=%u",
            utc.tm_hour, utc.tm_min, utc.tm_sec,
            utc.tm_mday, utc.tm_mon + 1, utc.tm_year + 1900,
            *unix_secs);
 
     return 0;
+}
+
+int timestamp_to_string(char * string, uint64_t timestamp) {
+    struct tm utc;
+    uint32_t unix_secs = (uint32_t) (timestamp/1000);
+    time_t t = (time_t)unix_secs;
+    gmtime_r(&t, &utc);
+
+    return snprintf(string, 100, "%02d:%02d:%02d %02d/%02d/%04d",utc.tm_hour, utc.tm_min, utc.tm_sec, utc.tm_mday, utc.tm_mon + 1, utc.tm_year + 1900);
 }
 
 //  ========== app_ds3231_init =============================================================
@@ -131,7 +141,7 @@ int8_t app_ds3231_set_time(const struct device *ds3231_dev, uint32_t unix_secs)
     k_mutex_lock(&offset_mutex, K_FOREVER);
     rtc_offset_ms = target_ms - uptime_ms;
     k_mutex_unlock(&offset_mutex);
-    LOG_INF("DS3231 time set to unix=%u, offset=%lld ms",
+    LOG_DBG("DS3231 time set to unix=%u, offset=%lld ms",
            readback, rtc_offset_ms);
     return 0;
 }
@@ -158,7 +168,7 @@ int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev)
     rtc_offset_ms = new_offset;
     k_mutex_unlock(&offset_mutex);
 
-    LOG_INF("sync: DS3231=%u s, tick_ms=%lld ms, offset=%lld ms",
+    LOG_DBG("sync: DS3231=%u s, tick_ms=%lld ms, offset=%lld ms",
            unix_secs, tick_ms, new_offset);
     return 0;
 }

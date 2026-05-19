@@ -25,5 +25,6 @@ const struct device *app_ds3231_init(void);
 int8_t app_ds3231_set_time(const struct device *ds3231_dev, uint32_t unix_secs);
 int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev);
 uint64_t app_get_timestamp(void);
-
+// Fill a string with the datetime corresponding to `timestamp`
+int timestamp_to_string(char * string, uint64_t timestamp);
 #endif /* APP_DS3231_H */

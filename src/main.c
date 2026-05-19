@@ -21,6 +21,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main);
 
+// define GPIO configurations for the LEDs
+static const struct gpio_dt_spec led_0 = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
+// static const struct gpio_dt_spec led_1 = GPIO_DT_SPEC_GET(LED_1, gpios);
 //  ========== RTC thread ==================================================================
 // thread to have periodic synchronisation of timestamp
 K_SEM_DEFINE(init_done_sem, 0, 1);
@@ -92,11 +95,27 @@ void sync_clock(const struct device * ds3231_dev)
     }
 }
 
+void setup_leds() {
+    	// test if GPIO is ready to use
+	if ((!gpio_is_ready_dt(&led_0))) {
+        return ;
+    }
+
+	// configure the LEDs as active output pins
+	gpio_pin_configure_dt(&led_0, GPIO_OUTPUT_ACTIVE);
+	//gpio_pin_configure_dt(&led_1, GPIO_OUTPUT_ACTIVE);
+
+    gpio_pin_set_dt(&led_0, 0);
+}
+
+
 //  ========== main ========================================================================
 int main(void)
 {
 	int8_t ret;
 
+    setup_leds();
+    
 	LOG_INF("initializing RTC Devices");
 	// initialize DS3231 RTC device via I2C (Pins: SDA -> P0.09, SCL -> P0.0)
 	const struct device *ds3231_dev = app_ds3231_init();
@@ -111,11 +130,10 @@ int main(void)
         sys_reboot(SYS_REBOOT_COLD); // Reset on failure
     }
     printk("Size of stored_anomaly_t : %d\n", sizeof(stored_anomaly_t));
-    
     //dump_fs("/log", false);
     // dump_fs("/data", false);
-    
     // rm_fs_content("/data");
+    // rm_fs_content("/log");
 	// set time (also computes initial offset)
     app_ds3231_set_time(ds3231_dev, 1741773600);
 
@@ -153,10 +171,14 @@ int main(void)
 	// start storage and strategy to watch an event with sent the event
 	app_sta_lta_start_tx();
     
+   
     // Start to send a periodic sample every hour
     if(PERIODIC_SAMPLE_ENABLE != 0) {
         start_periodic_sample();
     }
 
+    gpio_pin_set_dt(&led_0, 1);
+    k_sleep(K_SECONDS(60));
+    gpio_pin_set_dt(&led_0, 0);
 	return 0;
 }
