@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-import datetime
 from glob import glob
 from struct import *
 import json
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
+import argparse
 
 @dataclass
 class Sample:
@@ -41,12 +41,18 @@ def parse_samples(folder) -> list[Sample]:
     return samples
 
 def display_sample(sample: Sample):
-    plt.title = str(sample.timestamp)
+    fig = plt.figure(str(datetime.fromtimestamp(sample.timestamp/1000) + timedelta(hours=2)) + " ratio : " + str(sample.ratio))
     plt.plot(sample.signal)
     plt.show()
 
+def display_all_samples(samples: list[Sample]):
+    pass
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Display samples from the SASTRESS Sensor")
+    parser.add_argument("folder")
+    args = parser.parse_args()
     print("Opening samples")
-    samples = parse_samples("test_data")
+    samples = parse_samples(args.folder)
     for sample in samples:
         display_sample(sample)
