@@ -224,11 +224,6 @@ void app_anomaly_store(void *arg1, void *arg2, void *arg3)
 void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 {
     LOG_INF("STA/LTA thread started");
-    // threshold above which we consider an event detected and :
-    // - Must be sent
-    const float SEND_RATIO = 3.f;
-    // - Must be stored
-    const float STORE_RATIO = 2.8f;
     char time_str[100];
 
     last_anomaly_time = k_uptime_get() + 100000;

@@ -27,4 +27,9 @@
 // The size of an anomaly in memory (TODO Remove hardcoded sampling period of 10ms)
 #define STORED_ANOMALY_SIZE (ANOMALY_STORED_MS/10) 
 
+// threshold above which we consider an event detected and :
+// - Must be sent
+#define SEND_RATIO 3.f
+// - Must be stored
+#define STORE_RATIO 4.5f
 #endif
