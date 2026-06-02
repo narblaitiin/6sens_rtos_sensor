@@ -139,6 +139,11 @@ void rm_fs_content(char * mnt_name)
         }
     
     }
+
+    rc = fs_closedir(&root_dir);
+    if(rc < 0) {
+        LOG_WRN("Could not close %s folder", mnt_name);
+    } 
 }
 //  ========== dump_fs() ============================================================
 void dump_fs(char * mnt_name, bool clean)
