@@ -5,6 +5,7 @@ import json
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import argparse
+from math import sqrt, ceil
 
 @dataclass
 class Sample:
@@ -27,8 +28,7 @@ def parse_samples(folder) -> list[Sample]:
 
             unpacked = unpack('<Q4Hf502H',data)
             timestamp = unpacked[0]
-            print(datetime.fromtimestamp(unpacked[0]/1000))
-            print(timestamp)
+            
             max_ampl = unpacked[1]
             min_ampl = unpacked[2]
             mean_ampl = unpacked[3]
@@ -37,6 +37,7 @@ def parse_samples(folder) -> list[Sample]:
             ## Skip 4 bytes for what ??
             signal = unpacked[8:]
             s = Sample(timestamp, max_ampl, min_ampl, mean_ampl, ratio, signal)
+            print(datetime.fromtimestamp(unpacked[0]/1000), " - max: ", str(s.max_ampl), "min:", str(s.min_ampl), " mean", str(s.mean_ampl))
             samples.append(s)
     return samples
 
@@ -46,7 +47,21 @@ def display_sample(sample: Sample):
     plt.show()
 
 def display_all_samples(samples: list[Sample]):
-    pass
+    nb_sample = len(samples)
+    plot_dims = ceil(sqrt(nb_sample))
+    fig, axes = plt.subplots(plot_dims, plot_dims, sharex=True, sharey=True)
+    signal_size = len(samples[0].signal)
+    time = [10*i for i in range(signal_size)]
+    for i in range(nb_sample):
+        x = i % plot_dims
+        y =  i // plot_dims
+        sample = samples[i]
+        print(axes[x])
+        date = datetime.fromtimestamp(sample.timestamp/1000) + timedelta(hours=2)
+        axes[x][y].set_title(date.strftime("%H:%M:%S"))
+        axes[x][y].plot(time, sample.signal)
+    plt.tight_layout(pad=0.1, h_pad=0.3)
+    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Display samples from the SASTRESS Sensor")
@@ -54,5 +69,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("Opening samples")
     samples = parse_samples(args.folder)
+    print("Found", len(samples), "samples")
+    display_all_samples(samples)
+    exit()
     for sample in samples:
         display_sample(sample)

@@ -17,6 +17,9 @@
 #define MAX_FILE_SIZE           (64 * 1024)   // 512 KB per file (adjustable)
 #define STORAGE_BUFFER_SIZE     64
 
+// Buttons for dumping 
+#define DUMP_BUTTON  DT_ALIAS(sw1)
+#define CLEAR_BUTTON  DT_ALIAS(sw2)
 //  ========== prototypes ==================================================================
 /**
  * @brief mount the Flash storage at /lfs mountpoint
@@ -75,5 +78,19 @@ void rm_fs_content(char * mnt_name);
  */
 void dump_file(char * file_path);
 
+/**
+ * @brief Setup the button 1 and 2 
+ *  - Button 1 dumps the content of the /data and /log volume when pushed
+ *  - Button 2 remove the content of the /data volume and /log volume
+ * 
+ *  
+ *  */ 
+int setup_buttons();
 
+/** 
+ *  @brief start the thread waiting for dump/rm and setup buttons 1 and 2
+ * 
+ *  This thread is needed as printing from ISR can lead to deadlock with SEGGER RTT console
+ */
+void start_dump_rm_thread();
 #endif // APP_DOWNLOAD_H

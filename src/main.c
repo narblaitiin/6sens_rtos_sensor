@@ -129,11 +129,7 @@ int main(void)
         LOG_ERR("Could not mount lfs, resetting...");
         sys_reboot(SYS_REBOOT_COLD); // Reset on failure
     }
-    printk("Size of stored_anomaly_t : %d\n", sizeof(stored_anomaly_t));
-    //dump_fs("/log", false);
-    // dump_fs("/data", false);
-    // rm_fs_content("/data");
-    // rm_fs_content("/log");
+
 	// set time (also computes initial offset)
     app_ds3231_set_time(ds3231_dev, 1741773600);
 
@@ -171,11 +167,13 @@ int main(void)
 	// start storage and strategy to watch an event with sent the event
 	app_sta_lta_start_tx();
     
-   
+
     // Start to send a periodic sample every hour
     if(PERIODIC_SAMPLE_ENABLE != 0) {
         start_periodic_sample();
     }
+
+    start_dump_rm_thread();
 
     gpio_pin_set_dt(&led_0, 1);
     k_sleep(K_SECONDS(60));

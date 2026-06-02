@@ -98,6 +98,7 @@ def fs_downloader(jlink: pylink.JLink, export_folder: str):
     t = None
     
     current_file = None
+    current_folder = None
     data = ""
     while True:
         # Append characters to data until a new line is found
@@ -110,11 +111,20 @@ def fs_downloader(jlink: pylink.JLink, export_folder: str):
             lines = data.split("\n")
             data = lines.pop()
             for line in lines:
+                print(line)
+                line.replace("\r", "")
+                if line.startswith("DUMP_START:"):
+                    folder_name = line.split(":")[1]
+                    if folder_name[0] == "/":
+                        folder_name = folder_name[1:]
+                    print("Dumping new mountpoint :", folder_name)
+                    current_folder = os.path.join(export_folder, folder_name)
+                    os.makedirs(current_folder, exist_ok=True)
                 # FILE: <filename>
-                if line.startswith("FILE:"):
+                if line.startswith("FILE:") and current_folder:
                     filename = line.split(":")[1]
                     print("Found new file :", filename)
-                    current_file = open(os.path.join(export_folder,filename), "wb")
+                    current_file = open(os.path.join(current_folder,filename), "wb")
                     t = p.add_task(filename, total=64*1024)
                 # D: <base64 encoded data>
                 elif line.startswith("D:") and current_file:
@@ -130,11 +140,11 @@ def fs_downloader(jlink: pylink.JLink, export_folder: str):
                     print("End of file")
                     if current_file:
                         current_file.close()
+                        current_file = None
                         p.remove_task(t)
                 elif line.startswith("DUMP_END"):
-                    break
-                else:
-                    print(line)
+                     print("Done dumping", current_folder)
+                     current_folder = None
 
 def main():
     parser = argparse.ArgumentParser(description='Read flash memory from SASTRESS board using JLink RTT')
