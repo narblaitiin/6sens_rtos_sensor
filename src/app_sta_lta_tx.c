@@ -181,17 +181,36 @@ void app_anomaly_store(void *arg1, void *arg2, void *arg3)
     while(true) {
         // block until a detection event is enqueued
         k_msgq_get(&anomalies_to_store_msgq, &event, K_FOREVER);
-
+        printk("Waiting to store data\n");
         if(storing == false) {
             continue;
         }
+        
+
         k_sleep(K_MSEC(TIME_BTW_DETECT_AND_STORE_MS));
 
         uint64_t timestamp = app_get_timestamp();
+        uint64_t delta_detect = timestamp - event.timestamp_ms;
+
+        // On veut centrer le signal sur le moment de la détection
+        int overshoot = delta_detect - TIME_BTW_DETECT_AND_STORE_MS;
+
+        // We must store the signal from t_detect - 2.5s to t_detect +2.5s
+        // Since we waited 2.5s, we should store signal from -5s from now
+        // However, we might have waited more than 2.5s, we must correct for that
+        int start_offset_time = -ANOMALY_STORED_MS - overshoot;
+        int start_offset = start_offset_time / 10;
+        printk("Overshoot %d - Starting at offset %d\n", overshoot, start_offset);
+        if(ADC_BUFFER_SIZE - start_offset < 0) {
+            LOG_WRN("Cannot store the signal, offset is too important (%d ms)", start_offset_time);
+            continue;
+        }
+        // Objectif : On veut que le milieu du signal enregistré corresponde à la fin de la fenêtre de détection
+
         // Le moment où on a capturé l'événement, on prends 10s avant, et 10s après
-        app_adc_get_buffer(anomaly.samples, STORED_ANOMALY_SIZE, -STORED_ANOMALY_SIZE);
+        app_adc_get_buffer(anomaly.samples, STORED_ANOMALY_SIZE, start_offset);
         anomaly.event = event;
-        anomaly.event.timestamp_ms = timestamp - ANOMALY_STORED_MS;
+        anomaly.event.timestamp_ms = timestamp - start_offset_time;
         
         snprintf(file_path, sizeof(file_path), "/data/signal_%llu.dat", anomaly.event.timestamp_ms);
         
@@ -299,9 +318,9 @@ void app_sta_lta_start_tx(void)
     k_thread_create(&lorawan_thread_data, lorawan_stack,
                     K_THREAD_STACK_SIZEOF(lorawan_stack),
                     app_lorawan_thread, NULL, NULL, NULL,
-                    PRIORITY_TTN + 1, 0, K_NO_WAIT);
+                    PRIORITY_TTN + 2, 0, K_NO_WAIT);
 
-    // Storage thread (lower priority — network I/O can wait)
+    // Storage thread (lower priority — Yet, must execute before send)
     k_thread_create(&storage_thread_data, storage_stack,
                     K_THREAD_STACK_SIZEOF(storage_stack),
                     app_anomaly_store, NULL, NULL, NULL,

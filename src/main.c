@@ -59,7 +59,7 @@ K_THREAD_DEFINE(bth_thread_id, 2048, bth_thread_func,
 
 
 // Synchro clock 
-void sync_clock(const struct device * ds3231_dev)
+int sync_clock(const struct device * ds3231_dev)
 {
     int ret;
     uint32_t gps_time;
@@ -71,7 +71,7 @@ void sync_clock(const struct device * ds3231_dev)
     if (ret != 0)
     {
         LOG_ERR("lorawan_request_device_time returned %d\n", ret);
-        return;
+        return ret;
     }
 
     /*
@@ -83,6 +83,7 @@ void sync_clock(const struct device * ds3231_dev)
     if (ret != 0)
     {
         LOG_ERR("lorawan_device_time_get returned %d\n", ret);
+        return ret;
     }
     else
     {
@@ -93,6 +94,7 @@ void sync_clock(const struct device * ds3231_dev)
         strftime(buf, sizeof(buf), "%A %B %d %Y %I:%M:%S %p %Z", &timeinfo);
         LOG_INF("Sync with GPS Time = %lli, UTC Time: %s", unix_time, buf);
     }
+    return 0;
 }
 
 void setup_leds() {
@@ -154,6 +156,10 @@ int main(void)
 	LOG_INF("Geophone Measurement and Process Information");
 
     sync_clock(ds3231_dev);
+    if(ret != 0)  {
+        LOG_ERR("Could not get time, resetting...");
+        sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+    }
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
     if(BTH_ENABLE != 0) {

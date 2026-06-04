@@ -14,6 +14,7 @@
 #include "config.h" // for log level
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_backend.h>
+#include <zephyr/logging/log_ctrl.h>
 LOG_MODULE_REGISTER(filesystem);
 
 K_THREAD_STACK_DEFINE(dump_stack, 2048);
@@ -330,6 +331,13 @@ void app_storage() {
         // Dump event
         else if ((events & 0b01) == 0b01) {
             LOG_INF("Dumping flash data...");
+            const struct log_backend * fs_backend = log_backend_get_by_name("log_backend_fs");
+            if(fs_backend != NULL) {
+                log_backend_disable(fs_backend);
+                LOG_INF("FS Backend has been deactivated ! Reboot if you want to enable it again ;)");
+            } else {
+                LOG_ERR("Could not find log_backend_fs ! ");
+            }
             dump_fs("/data", false);
             dump_fs("/log", false);
         } 

@@ -111,8 +111,7 @@ def fs_downloader(jlink: pylink.JLink, export_folder: str):
             lines = data.split("\n")
             data = lines.pop()
             for line in lines:
-                print(line)
-                line.replace("\r", "")
+                line = line.replace("\r", "")
                 if line.startswith("DUMP_START:"):
                     folder_name = line.split(":")[1]
                     if folder_name[0] == "/":
@@ -137,7 +136,6 @@ def fs_downloader(jlink: pylink.JLink, export_folder: str):
                         print("Error trying to decode {} : {}".format(b64, e))
                 # TOTAL_ENCODED : <int> -> Marks the end of the current file
                 elif line.startswith("TOTAL_ENCODED:"):
-                    print("End of file")
                     if current_file:
                         current_file.close()
                         current_file = None
