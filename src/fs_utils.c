@@ -373,6 +373,7 @@ void start_dump_rm_thread() {
     int ret = setup_buttons(); 
     if(ret) {
         LOG_ERR("Could no setup buttons, we are not starting the dump/rm thread");
+        return;
     }
 
     k_thread_create(&dump_tdata, dump_stack,

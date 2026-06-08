@@ -35,4 +35,5 @@ int lora_init();
 int lora_joinnet();
 int lora_send_packet(PACKET_TYPE type, uint8_t * payload, int payload_size);
 int lora_send_timestamp(PACKET_TYPE type, uint64_t timestamp, uint8_t * payload, int payload_size);
+int64_t get_last_msg_uptime();
 #endif /* APP_LORAWAN_H */

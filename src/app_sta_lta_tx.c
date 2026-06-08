@@ -258,9 +258,15 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
         float lta = calculate_squared_avg(lta_buffer, LTA_WINDOW_SIZE);
         float ratio = (lta > 0.0f) ? (sta / lta) : 0.0f; // guard divide-by-zero
 
+        // If an anomaly was detected MINIMAL_DELAY_ANOMALY_MS ms ago, this might be the same
         if (k_uptime_get() - last_anomaly_time < MINIMAL_DELAY_ANOMALY_MS)
         {
-            // printk("Detected anomaly %lld ms ago, skipping\n", k_uptime_get() - last_anomaly_time);
+            continue;
+        }
+        // BUGFIX : If we sent a LoRa message less than 3s ago, this can create
+        // voltage drops that get detected has an anomaly. 
+        if(k_uptime_get() - get_last_msg_uptime() < 3000) {
+            // LOG_INF("Expecting voltage drop, skipping ! %lld" , k_uptime_get() - get_last_msg_uptime());
             continue;
         }
         // only send LoRaWAN when a seismic event is detected

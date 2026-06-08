@@ -52,11 +52,12 @@ static void periodic_sample_app(void *arg1, void *arg2, void *arg3) {
 }
 
 void start_periodic_sample(void)
-{
+{   
+    LOG_INF("Starting Periodic Sample Thread");
     // original STA/LTA detection thread
     k_thread_create(&periodic_thread_data, periodic_thread_stack,
                     K_THREAD_STACK_SIZEOF(periodic_thread_stack),
                     periodic_sample_app, NULL, NULL, NULL,
-                    5, 0, PERIODIC_SAMPLE_PERIOD);
+                    5, 0, K_MSEC(3000));
 
 }

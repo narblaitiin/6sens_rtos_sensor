@@ -137,13 +137,6 @@ int main(void)
         restart_sensor();
     }
 
-	// set time (also computes initial offset)
-    app_ds3231_set_time(ds3231_dev, 1741773600);
-
-	// start nRF internal RTC counter for sub-second precision
-    const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
-    counter_start(nrf_rtc);
-    LOG_INF("Time set...");
 	// unblock RTC sync thread
     k_sem_give(&init_done_sem);
 	ret = lora_init();
@@ -159,17 +152,23 @@ int main(void)
 		restart_sensor();
 	}
 	
-
     ret = sync_clock(ds3231_dev);
     if(ret != 0)  {
         LOG_ERR("Could not get time, resetting...");
         restart_sensor();
     }
+
+    // start nRF internal RTC counter for sub-second precision
+    const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
+    counter_start(nrf_rtc);
+    LOG_INF("Started NRF RTC Synchro...");
+
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
     if(BTH_ENABLE != 0) {
         k_thread_start(bth_thread_id);
     }
+
     k_thread_start(rtc_thread_id); 
 
     LOG_INF("Geophone Measurement and Process Information");

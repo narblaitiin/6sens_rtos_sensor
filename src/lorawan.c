@@ -33,6 +33,13 @@ struct lorawan_downlink_cb downlink_cb = {
     .cb = dl_callback
 };
 
+static uint64_t last_msg_uptime = 0;
+
+/** Get when the last LoRa message was sent
+ */
+int64_t get_last_msg_uptime() {
+    return last_msg_uptime;
+}
 
 /*** Initialize Lora chip, and register callbacks
  */
@@ -135,6 +142,7 @@ int lora_send_timestamp(PACKET_TYPE type, uint64_t timestamp, uint8_t * payload,
     while (ret != 0) {
         ret = lorawan_send(LORAWAN_PORT, (int8_t *) &packet, payload_size + header_size, LORAWAN_MSG_UNCONFIRMED);
         LOG_INF("Message sent");
+        last_msg_uptime = k_uptime_get();
         if (ret != 0) {
             LOG_ERR("lorawan_send failed: %d", ret);
             if(lora_joinnet()) {
