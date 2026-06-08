@@ -19,6 +19,7 @@
 #include <zephyr/lorawan/lorawan.h>
 
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
 LOG_MODULE_REGISTER(main);
 
 // define GPIO configurations for the LEDs
@@ -110,6 +111,10 @@ void setup_leds() {
     gpio_pin_set_dt(&led_0, 0);
 }
 
+int restart_sensor() {
+    log_flush();
+    sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+}
 
 //  ========== main ========================================================================
 int main(void)
@@ -123,13 +128,13 @@ int main(void)
 	const struct device *ds3231_dev = app_ds3231_init();
     if (!ds3231_dev) {
         LOG_ERR("failed to initialize DS3231");
-        sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+        restart_sensor();
     }
 
     ret = mount_lfs();
     if(ret != 0)  {
         LOG_ERR("Could not mount lfs, resetting...");
-        sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+        restart_sensor();
     }
 
 	// set time (also computes initial offset)
@@ -144,21 +149,21 @@ int main(void)
 	ret = lora_init();
 	if (ret != 0) {
 		LOG_ERR("Could not initalize LoRa");
-		sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+		restart_sensor();
 	}
     LOG_INF("Lora INIT OK...");
 
 	ret = lora_joinnet();
 	if (ret != 0) {
 		LOG_ERR("Could not connect to LoRa net");
-		sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+		restart_sensor();
 	}
-	LOG_INF("Geophone Measurement and Process Information");
+	
 
-    sync_clock(ds3231_dev);
+    ret = sync_clock(ds3231_dev);
     if(ret != 0)  {
         LOG_ERR("Could not get time, resetting...");
-        sys_reboot(SYS_REBOOT_COLD); // Reset on failure
+        restart_sensor();
     }
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
@@ -167,6 +172,7 @@ int main(void)
     }
     k_thread_start(rtc_thread_id); 
 
+    LOG_INF("Geophone Measurement and Process Information");
 	// start ADC sampling
     app_adc_sampling_start();
 

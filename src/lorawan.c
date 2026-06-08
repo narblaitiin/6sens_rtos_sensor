@@ -12,14 +12,16 @@ static void dl_callback(uint8_t port, uint8_t data_pending,
 			int16_t rssi, int8_t snr,
 			uint8_t len, const uint8_t *hex_data)
 {
-	LOG_INF("Port %d, Pending %d, RSSI %ddB, SNR %ddBm", port, data_pending, rssi, snr);
+	// Do not print in ISR ! (https://github.com/zephyrproject-rtos/zephyr/issues/11393)
+    // LOG_INF("Port %d, Pending %d, RSSI %ddB, SNR %ddBm", port, data_pending, rssi, snr);
 }
 
 static void lorawan_datarate_changed(enum lorawan_datarate dr)
 {
     uint8_t unused, max_size;
     lorawan_get_payload_sizes(&unused, &max_size);
-    LOG_INF("new datarate: DR_%d, max payload %d", dr, max_size);
+    // Do not print in ISR ! (https://github.com/zephyrproject-rtos/zephyr/issues/11393)
+    // LOG_INF("new datarate: DR_%d, max payload %d", dr, max_size);
 }
 
 // initialize LoRaWAN protocol and register the device
