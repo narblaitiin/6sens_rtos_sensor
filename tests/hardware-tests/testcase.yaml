@@ -1,0 +1,7 @@
+tests:
+  # flash-command: "west flash --runner jlink"
+  sensor.core_logic:
+    tags: sensor math
+    platform_allow: mdbt50q_lora_dev
+    integration_platforms:
+      - mdbt50q_lora_dev

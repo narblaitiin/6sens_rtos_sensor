@@ -13,8 +13,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
-#include <zephyr/fs/fs.h>
-#include <zephyr/fs/littlefs.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/ring_buffer.h>
 
