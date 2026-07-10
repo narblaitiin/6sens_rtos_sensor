@@ -122,6 +122,7 @@ int lora_send_timestamp(PACKET_TYPE type, uint64_t timestamp, uint8_t * payload,
 
     if(payload_size + header_size > 255) {
         LOG_ERR("[ERROR] Trying to send more than 255 bytes !");
+        return -1;
     }
 
     LOG_INF("Sending Payload of type : %d", type);

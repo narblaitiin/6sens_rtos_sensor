@@ -145,11 +145,11 @@ int16_t app_adc_get_bat()
 
     // convert raw ADC reading to voltage
     int32_t v_adc = (sample_buffer * ADC_FULL_SCALE_MV) / ADC_RESOLUTION;
-    LOG_INF("convert voltage AIN1: %d mV", v_adc);
+    // LOG_INF("convert voltage AIN1: %d mV", v_adc);
 
     // scale back to actual battery voltage using voltage divider
     int32_t v_bat = (v_adc * DIVIDER_RATIO_NUM) / DIVIDER_RATIO_DEN;
-    LOG_INF("convert voltage BATT: %d mv", v_bat);
+    // LOG_INF("convert voltage BATT: %d mv", v_bat);
 
     return v_bat;
 }
