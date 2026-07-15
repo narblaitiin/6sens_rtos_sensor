@@ -156,11 +156,7 @@ int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev)
         return ret;
     }
 
-    const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
-    uint32_t ticks;
-    counter_get_value(nrf_rtc, &ticks);
-    uint32_t freq   = counter_get_frequency(nrf_rtc);
-    int64_t tick_ms = ((int64_t)ticks * 1000) / freq;
+    int64_t tick_ms = k_uptime_get();
 
     int64_t new_offset = (int64_t)unix_secs * 1000 - tick_ms;
 
@@ -178,10 +174,7 @@ int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev)
 uint64_t app_get_timestamp(void)
 {
     const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
-    uint32_t ticks;
-    counter_get_value(nrf_rtc, &ticks);
-    uint32_t freq   = counter_get_frequency(nrf_rtc);
-    int64_t tick_ms = ((int64_t)ticks * 1000) / freq;
+    int64_t tick_ms = k_uptime_get();
 
     int64_t offset;
     k_mutex_lock(&offset_mutex, K_FOREVER);
