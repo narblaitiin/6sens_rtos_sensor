@@ -78,7 +78,7 @@ int sync_clock(const struct device * ds3231_dev)
     /*
     * Once time synchronisation has occurred, lorawan_clock_sync_get() can
     * be called to populate an uint32_t variable with GPS Time. This is the
-    * number of seconds since Jan 6th 1980 ignoring leap seconds.
+    * number of seconds since Jan 6th 1980
     */
     ret = lorawan_device_time_get(&gps_time);
     if (ret != 0)
@@ -88,7 +88,7 @@ int sync_clock(const struct device * ds3231_dev)
     }
     else
     {
-        gps_time += 315964800;
+        gps_time += 315964782;
         unix_time = gps_time;
         app_ds3231_set_time(ds3231_dev, gps_time);
         localtime_r(&unix_time, &timeinfo);
@@ -136,7 +136,7 @@ int main(void)
         LOG_ERR("Could not mount lfs, resetting...");
         restart_sensor();
     }
-    
+
 	// unblock RTC sync thread
     k_sem_give(&init_done_sem);
 	ret = lora_init();

@@ -173,7 +173,6 @@ int8_t app_ds3231_periodic_sync(const struct device *ds3231_dev)
 // returns unix timestamp in ms with sub-second precision from nRF RTC ticks
 uint64_t app_get_timestamp(void)
 {
-    const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
     int64_t tick_ms = k_uptime_get();
 
     int64_t offset;
