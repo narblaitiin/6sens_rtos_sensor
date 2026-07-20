@@ -136,7 +136,7 @@ int main(void)
         LOG_ERR("Could not mount lfs, resetting...");
         restart_sensor();
     }
-
+    
 	// unblock RTC sync thread
     k_sem_give(&init_done_sem);
 	ret = lora_init();
@@ -157,11 +157,6 @@ int main(void)
         LOG_ERR("Could not get time, resetting...");
         restart_sensor();
     }
-
-    // start nRF internal RTC counter for sub-second precision
-    const struct device *nrf_rtc = DEVICE_DT_GET(DT_NODELABEL(rtc2));
-    counter_start(nrf_rtc);
-    LOG_INF("Started NRF RTC Synchro...");
 
 	// start threads and sampling only after all HW is ready
     bth_thread_flag = true;
@@ -188,6 +183,7 @@ int main(void)
 
     gpio_pin_set_dt(&led_0, 1);
     k_sleep(K_SECONDS(60));
+    log_flush();
     gpio_pin_set_dt(&led_0, 0);
 	return 0;
 }

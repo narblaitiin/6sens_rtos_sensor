@@ -100,6 +100,7 @@ void rm_fs_content(char * mnt_name)
     LOG_INF("Cleaning partition %s\n", mnt_name);
     if(!is_lfs_mounted(mnt_name)) {
         LOG_ERR("No mount to folder %s, cannot rm FS", mnt_name);
+        return;
     }
 
      // Get the partition folder
@@ -111,12 +112,12 @@ void rm_fs_content(char * mnt_name)
     {
     case -EINVAL:
         LOG_ERR("Bad directory given...");
-        break;
+        return;
     case 0:
         break;
     default:
         LOG_ERR("Error : error code=%d", rc);
-        break; // TODO ADD return on error
+        return;
     }
 
     printk("Reading content of %s dir\n", mnt_name);
@@ -353,6 +354,12 @@ void app_storage() {
             }
 
             LOG_INF("Clear button pushed twice, removing fs content");
+
+            const struct log_backend * fs_backend = log_backend_get_by_name("log_backend_fs");
+            if(fs_backend != NULL) {
+                log_backend_disable(fs_backend);
+            } 
+
             rm_fs_content("/data");
             rm_fs_content("/log");
 
@@ -362,6 +369,7 @@ void app_storage() {
                 gpio_pin_set_dt(&led_0, 1);
                 k_msleep(100);
             }
+            gpio_pin_set_dt(&led_0, 0);
         }
         k_msleep(500);
     }

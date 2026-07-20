@@ -19,7 +19,6 @@ message("NODE ID is ${env_node_id}")
 # - Set default logging code to LOG_LEVEL_INF
 if(DEFINED ENV{DEPLOY})
     message("Building DEPLOY configuration !")
-    set(EXTRA_CONF_FILE deploy.conf)
     set(SASTRESS_LOG_LVL LOG_LEVEL_INF)
 endif()
 message("Log level is ${SASTRESS_LOG_LVL}")

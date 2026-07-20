@@ -15,6 +15,7 @@
 #include "config.h"
 
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
 LOG_MODULE_REGISTER(stalta);
 
 //  ========== globals =====================================================================
@@ -200,10 +201,10 @@ void app_anomaly_store(void *arg1, void *arg2, void *arg3)
         // Since we waited 2.5s since detection, we should store signal from -5s from now
         // However, we might have waited more than 2.5s, we must correct for that
         int start_offset_time = -ANOMALY_STORED_MS - overshoot;
-        
+        uint64_t start_time = timestamp + start_offset_time;
         int start_offset = start_offset_time / 10;
         printk("Overshoot %d - Starting at offset %d\n", overshoot, start_offset);
-  
+        printk("Start time is %lld\n", start_time);
         if(ADC_BUFFER_SIZE - start_offset < 0) {
             LOG_WRN("Cannot store the signal, offset is too important (%d ms)", start_offset_time);
             continue;
@@ -211,7 +212,7 @@ void app_anomaly_store(void *arg1, void *arg2, void *arg3)
         // Le moment où on a capturé l'événement, on prends 10s avant, et 10s après
         app_adc_get_buffer(anomaly.samples, STORED_ANOMALY_SIZE, start_offset);
         anomaly.event = event;
-        anomaly.event.timestamp_ms = timestamp - start_offset_time;
+        anomaly.event.timestamp_ms = start_time;
         
         snprintf(file_path, sizeof(file_path), "/data/signal_%llu.dat", anomaly.event.timestamp_ms);
         
@@ -263,14 +264,14 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
         {
             continue;
         }
-        // BUGFIX : If we sent a LoRa message less than 3s ago, this can create
+        // BUGFIX : If we sent a LoRa message less than 12s ago, this can create
         // voltage drops that get detected has an anomaly. 
-        if(k_uptime_get() - get_last_msg_uptime() < 3000) {
+        if(k_uptime_get() - get_last_msg_uptime() < 12000) {
             // LOG_INF("Expecting voltage drop, skipping ! %lld" , k_uptime_get() - get_last_msg_uptime());
             continue;
         }
         // only send LoRaWAN when a seismic event is detected
-        if (ratio >= STORE_RATIO)
+        if (ratio >= SEND_RATIO)
         {
             last_anomaly_time = k_uptime_get();
             uint64_t timestamp = app_get_timestamp();
@@ -289,12 +290,8 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
 
             timestamp_to_string(time_str, timestamp);
             LOG_INF("event detected at %s max amplitude: %u, ratio: %.2f", time_str, max_amp, (double)ratio);
+            log_flush();
 
-            if (k_msgq_put(&anomalies_to_store_msgq, &l_evt, K_NO_WAIT) != 0)
-            {
-                LOG_ERR("Anomaly storage queue full, event dropped");
-            }
-            
 
             // If the event has been detected but is not worth sending, continue to next detection.
             if (ratio < SEND_RATIO) {
@@ -307,7 +304,17 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
             {
                 LOG_ERR("LoRaWAN queue full, event dropped");
             }
+            
+            // If the event has been detected but is not worth recording
+            if (ratio < STORE_RATIO) {
+                continue;
+            }
 
+            if (k_msgq_put(&anomalies_to_store_msgq, &l_evt, K_NO_WAIT) != 0)
+            {
+                LOG_ERR("Anomaly storage queue full, event dropped");
+            }
+            
         }
     }
 }
