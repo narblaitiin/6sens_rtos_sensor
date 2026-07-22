@@ -289,7 +289,7 @@ void app_sta_lta_thread(void *arg1, void *arg2, void *arg3)
             
 
             timestamp_to_string(time_str, timestamp);
-            LOG_INF("event detected at %s max amplitude: %u, ratio: %.2f", time_str, max_amp, (double)ratio);
+            LOG_INF("event detected at %s (UTC). Max amplitude: %u, ratio: %.2f", time_str, max_amp, (double)ratio);
             log_flush();
 
 

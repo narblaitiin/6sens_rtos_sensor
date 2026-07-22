@@ -29,7 +29,9 @@
 
 // threshold above which we consider an event detected and :
 // - Must be sent
-#define SEND_RATIO 3.f
+#define SEND_RATIO 3.5f
 // - Must be stored
-#define STORE_RATIO 4.5f
+#define STORE_RATIO 3.5f
+// /!\ For now, the two number must be the same. Indeed, right after we detected an anomaly, we wait 10s until the next one.
+// Thus, the smallest threshold detects the anomaly and a higher threshold would never trigger
 #endif

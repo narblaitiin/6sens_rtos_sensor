@@ -122,7 +122,7 @@ int main(void)
 	int8_t ret;
 
     setup_leds();
-    
+
 	LOG_INF("initializing RTC Devices");
 	// initialize DS3231 RTC device via I2C (Pins: SDA -> P0.09, SCL -> P0.0)
 	const struct device *ds3231_dev = app_ds3231_init();
