@@ -35,7 +35,11 @@ You will need to register new devices in your application (with OTAA activation 
 
 To build the application, first follow [Zephy Quickstart](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) to install all the dependencies.
 
-Then, run in the `zephyrproject` folder the following commands :
+Then, clone this repository in the `applications` folder of `zephyrproject`. 
+
+TODO - Add the instructions to create the custom board and install the dts files. 
+
+Finally, run in the `zephyrproject` folder the following commands :
 
 **Command to use**
 ```bash
