@@ -1,16 +1,13 @@
-# Code for 6Sens Project : testing the LoRaWAN application with integration in TTN with real value of environmental data of the node and the velocity of the sensor.
+# Code for 6Sens Project
 
 ## Overview
-This application contains example code to allow testing of LoRaWAN Network Application for the last code before final code.
-This code also allows to test the transmission of battery level, temperature, and humidity information from the sensor to the TTN app.
 
-At the same time, samples from the geophone are also sent to the TTN app for a short (1 s) or long (10 s) duration. Priority is given to data from the sensor.
+This application allow the monitoring of geological events, via a vibration sensor.
 
-Two files are provided before the final code:
-
-- app_ttn_tx: sends a number of samples in mV the size of the LTA_WINDOW_SIZE window (10s, 10ms sampling interval) to LoRaWAN
-
-- app_sta_lta: calculates the ratio between the amplitude in mV of the samples from a short window (STA_WINDOW_SIZE) and a long window (LTA_WINDOW_SIZE).
+It features :
+- Vibration acquisition and analysis with the STA/LTA algorithm
+- LoRa communication to send the anomaly detected, samples linked to anomalies, and sensor status (temperature, battery, humidity)
+- Zephyr filesystem support for storing acquired samples, and the sensor logs
 
 The version of Zephyr RTOS used is the version v4.0.0.
 
@@ -35,11 +32,14 @@ You will need to register new devices in your application (with OTAA activation 
         AppSKey                         random value for 16-byte address
 
 ## Building and Running
-The following commands clean build folder, build and flash the sample for debug :
+
+To build the application, first follow [Zephy Quickstart](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) to install all the dependencies.
+
+Then, run in the `zephyrproject` folder the following commands :
 
 **Command to use**
 ```bash
-# First, export your NODE_ID 
+# First, export your NODE_ID. Test node ID is 666
 export NODE_ID=X
 
 # Clean the existing build
@@ -52,21 +52,66 @@ west build -p always -b mdbt50q_lora_dev applications/6sens_rtos_sensor
 west flash --runner jlink
 ```
 
-For deployment build :
+## Testing
 
-```bash
-# First, export your NODE_ID 
-export NODE_ID=X
-# Set to deploy mode
-export DEPLOY=TRUE
-# Clean the existing build
-west build -t pristine
+Units tests for the sensors are available in the `tests` folder.
 
-# Build the application
-west build -p always -b mdbt50q_lora_dev applications/6sens_rtos_sensor
+They are separated in two types :
 
-# Flash it
-west flash --runner jlink
+- `hardware-tests`, which verify that the sensor hardware is working correctly
+- `software-tests`, which verify if the sensor algorithms are correct (STA/LTA) 
 
+Check the README at the root of `hardware-tests` or `software-tests` for more info.
 
-```
+## Analysing data
+
+All the scripts are located in the `analysis_scripts` folder.
+
+### 1. Download the Data
+
+First, grab the raw files off your board using download_data.py. This script connects via J-Link RTT, decodes the base64 chunks, and reconstructs your board's filesystem locally.
+
+Run the script and specify the output folder :
+
+`python download_data.py -o experiment/node_1`
+
+Then, push the "dump button" on the board (for now, named `button1`).
+
+The folder node_1 should contain the following folders :
+- _data_, which contains recorded anomalies, identified by their timestamp (`signal_<timestamp>.dat`)
+- _logs_, which contains the sensor logs
+
+### 2. Visualize the data
+
+Use display_samples.py to inspect signal graphs and timeline events. The script supports three modes:
+
+#### Mode `all`: Overview (All Signals on One Page)
+
+This script generates an A4 pdf containing all the recorded signals. 
+It should be given the folder which contains the signals (signal_XXXX.dat) as input.
+The pdf is generated in a folder named `out`, but this can be specified with the `-o` option.
+
+`python display_samples.py all experiment/node_1/data`
+
+#### Mode `single`: Signals alone
+
+Generates a separate figure for every individual .dat file.
+
+`python display_samples.py single experiment/node_1/data -o out/`
+
+#### Mode 'timeline`: Timeline View
+
+Shows detected events across multiple sensor nodes on a shared timeline.
+
+`python display_samples.py timeline experiment/ -o out/`
+
+Note for Timeline Mode: Point folder to the top-level parent folder (e.g., experiment/) containing your node_1, node_2, etc. folders.
+
+### 3. Analyze Co-Detections
+
+Run get_codetect.py to aggregate anomalies that occur close in time across multiple nodes.
+The script scans directories matching node* and groups anomalies across nodes if they occur less than 5 seconds apart.
+
+Run the script in the `experiment` folder :
+
+`python get_codetect.py`

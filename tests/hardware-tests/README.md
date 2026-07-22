@@ -4,6 +4,7 @@ Tests for the sensor hardware.
 
 ## Launch tests :
 
+In this folder, run the following commands : 
 ```sh
 # Build the tests
 west build  -b mdbt50q_lora_dev --pristine  
@@ -11,7 +12,7 @@ west build  -b mdbt50q_lora_dev --pristine
 # Flash the board
 west flash --runner jlink 
 
-# Check the results with JLink
+# Check the results with JLinkRTTViewer
 JLinkRTTViewer
 ```
 
