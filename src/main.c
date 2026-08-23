@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include "version.h"
 /*
  * Copyright (c) 2025
  * Regis Rousseau
@@ -119,6 +121,8 @@ int restart_sensor() {
 //  ========== main ========================================================================
 int main(void)
 {
+    printf("Software version: %s\n", SOFTWARE_VERSION);
+
 	int8_t ret;
 
     setup_leds();
